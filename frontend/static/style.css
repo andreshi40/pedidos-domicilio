@@ -1,29 +1,45 @@
 /* /frontend/static/style.css */
 
+:root{
+    --brand-primary: #ff6b35; /* warm orange */
+    --brand-primary-dark: #e0552a;
+    --brand-accent: #2ecc71; /* green accent for success/cta */
+    --bg-soft: #fff7f2;
+    --text-muted: #6b6b6b;
+    --text: #2b2b2b;
+    --card-bg: #ffffff;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: Inter, Arial, Helvetica, sans-serif;
     line-height: 1.6;
     margin: 0;
     padding: 0;
-    background-color: #f4f4f4;
-    color: #333;
+    background-color: var(--bg-soft);
+    color: var(--text);
 }
 
 header {
-    background: #333;
+    background: linear-gradient(90deg,var(--brand-primary),var(--brand-primary-dark));
     color: #fff;
-    padding: 1rem 0;
-    text-align: center;
+    padding: 0.6rem 0;
+}
+
+.header-top {
+    align-items: center;
 }
 
 header h1 {
-    margin: 0;
+    margin: 0 0 0 0.5rem;
+    font-size: 1.1rem;
+    color: #fff;
 }
 
 nav a {
     color: #fff;
     text-decoration: none;
-    margin: 0 15px;
+    margin: 0 12px;
+    font-weight: 600;
 }
 
 /* Main navigation styling */
@@ -45,18 +61,19 @@ nav a {
 .main-nav a {
     color: #fff;
     background: transparent;
-    padding: 0.5rem 0.75rem;
-    border-radius: 4px;
+    padding: 0.45rem 0.65rem;
+    border-radius: 6px;
 }
 
 .main-nav a:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.12);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
 .nav-user {
     color: #fff;
     margin-right: 0.5rem;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 /* Hamburger toggle - hidden on large screens */
@@ -88,26 +105,23 @@ nav a {
 
 main {
     padding: 2rem;
-    max-width: 800px;
-    margin: auto;
+    max-width: 1000px;
+    margin: 1.25rem auto;
 }
 
 footer {
     text-align: center;
     padding: 1rem 0;
-    background: #333;
+    background: var(--brand-primary-dark);
     color: #fff;
-    position: fixed;
-    width: 100%;
-    bottom: 0;
 }
 
 /* Estilos de formulario */
 form {
-    background: #fff;
+    background: var(--card-bg);
     padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(32,32,32,0.06);
 }
 
 /* Inputs and labels take full width inside forms */
@@ -121,9 +135,9 @@ textarea {
 
 input,
 textarea {
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 0.6rem;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
 }
 
 /* Buttons should size naturally unless explicitly made full-width. This
@@ -133,22 +147,23 @@ button {
     display: inline-block;
     width: auto;
     margin-bottom: 1rem;
-    background-color: #5cb85c;
+    background-color: var(--brand-primary);
     color: white;
-    padding: 0.5rem 0.75rem;
+    padding: 0.6rem 0.9rem;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
+    font-weight: 700;
 }
 
 button.full-width {
     display: block;
     width: 100%;
-    padding: 0.75rem;
+    padding: 0.85rem;
 }
 
 button:hover {
-    background-color: #4cae4c;
+    background-color: var(--brand-primary-dark);
 }
 
 /* Table styling and spacing */
@@ -156,18 +171,18 @@ table {
     border-collapse: collapse;
     width: 100%;
     margin-bottom: 2.5rem; /* espacio inferior más amplio */
-    background: #fff;
+    background: var(--card-bg);
 }
 
 th,
 td {
-    border: 1px solid #666;
-    padding: 0.5rem 0.75rem;
+    border: 1px solid #eee;
+    padding: 0.75rem 0.9rem;
     text-align: left;
 }
 
 th {
-    background: #eee;
+    background: #faf6f3;
 }
 
 /* A bit of spacing around the "Resultados" header to avoid overlap */
@@ -177,5 +192,9 @@ h3 {
 }
 
 a {
-    color: #5cb85c;
+    color: var(--brand-primary);
 }
+
+.site-logo{ height:40px; width:40px; display:inline-block; vertical-align:middle; }
+
+.header-left{ display:flex; align-items:center; gap:0.5rem }
