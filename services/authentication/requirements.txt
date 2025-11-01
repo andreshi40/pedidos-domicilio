@@ -2,3 +2,8 @@ fastapi
 python-multipart
 pymongo
 uvicorn
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+email-validator
+redis

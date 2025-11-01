@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>Usuarios (Admin)</h2>
+
+  <p>Pega un access token válido (con role=admin) para ver la lista de usuarios.</p>
+  {% if session.access_token %}
+    <p>Sesión iniciada. <form method="post" style="display:inline;"><button type="submit" name="action" value="logout">Cerrar sesión</button></form></p>
+  {% else %}
+    <p>No has iniciado sesión. <a href="{{ url_for('login') }}">Iniciar sesión</a></p>
+  {% endif %}
+
+  {% if users is not none %}
+    <h3>Resultados ({{ users|length }})</h3>
+    <table border="1" cellpadding="6">
+      <tr><th>ID</th><th>Email</th><th>Role</th><th>Created at</th></tr>
+      {% for u in users %}
+        <tr>
+          <td>{{ u.id }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.role }}</td>
+          <td>{{ u.created_at }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+{% endblock %}

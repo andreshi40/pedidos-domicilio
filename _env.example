@@ -1,40 +1,44 @@
-# Este archivo contiene las variables de entorno necesarias para la configuración
-# de los servicios y bases de datos del proyecto.
-# Renombra este archivo a ".env" y ajusta los valores según sea necesario.
+# .env example for pedidos-domicilio
+# Copy to `.env` and adjust values for your environment before running `docker compose`.
 
-# CONFIGURACIÓN GENERAL
-
-# URL del API Gateway. El frontend se conectará a esta dirección.
-# En un entorno de Docker Compose, el nombre del servicio es el hostname.
+#############################
+# General
+#############################
 API_GATEWAY_URL=http://api-gateway:8000
 
-# VARIABLES PARA EL SERVICIO DE AUTENTICACIÓN
-
-# La URL de la base de datos de autenticación (MongoDB).
-# El nombre del host debe coincidir con el nombre del servicio de la base de datos en docker-compose.yml.
-AUTH_SERVICE_URL=http://auth-service:8001
+#############################
+# Authentication service (Mongo)
+#############################
+# Hostname must match the service name in docker-compose.yml
+AUTH_SERVICE_URL=http://authentication:8001
 AUTH_DATABASE_URL=mongodb://auth-db:27017/auth_db
 
-# VARIABLES PARA LOS MICROSERVICIOS DE LOS ESTUDIANTES
+#############################
+# Postgres credentials (used by restaurantes and pedidos)
+#############################
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
 
-# TODO: Ajusta las variables de entorno para los servicios
-#       y bases de datos de tu tema elegido.
-#
-#       Asegúrate de que los nombres de los hosts (ej. "service1-db")
-#       coincidan con los nombres de los servicios en tu docker-compose.yml.
-#
+# Restaurantes DB
+RESTAURANTES_DB_HOST=restaurantes-db
+RESTAURANTES_DB_NAME=service1_db
+RESTAURANTES_DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${RESTAURANTES_DB_HOST}:5432/${RESTAURANTES_DB_NAME}
 
-# URL del servicio1 (FastAPI)
-NAME1_SERVICE_URL=http://service1-service:8002
-# URL de la base de datos1 (PostgreSQL)
-NAME1_DATABASE_URL=postgresql://user:password@service1-db:5432/catalog_db
+# Pedidos DB
+PEDIDOS_DB_HOST=pedidos-db
+PEDIDOS_DB_NAME=pedidos_db
+PEDIDOS_DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${PEDIDOS_DB_HOST}:5432/${PEDIDOS_DB_NAME}
 
-# URL del servicio2 (FastAPI)
-NAME2_SERVICE_URL=http://service2-service:8002
-# URL de la base de datos2 (PostgreSQL)
-NAME2_DATABASE_URL=postgresql://user:password@service2-db:5432/catalog_db
+#############################
+# Redis
+#############################
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}/0
 
-# URL del servicio3 (FastAPI)
-NAME3_SERVICE_URL=http://service3-service:8002
-# URL de la base de datos3 (PostgreSQL)
-NAME3_DATABASE_URL=postgresql://user:password@service3-db:5432/catalog_db
+#############################
+# Service URLs for easy reference
+#############################
+AUTHENTICATION_URL=http://authentication:8001
+RESTAURANTES_URL=http://restaurantes-service:8002
+PEDIDOS_URL=http://pedidos-service:8003

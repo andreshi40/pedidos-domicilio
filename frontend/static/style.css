@@ -26,6 +26,66 @@ nav a {
     margin: 0 15px;
 }
 
+/* Main navigation styling */
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.main-nav {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.main-nav a {
+    color: #fff;
+    background: transparent;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+}
+
+.main-nav a:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.nav-user {
+    color: #fff;
+    margin-right: 0.5rem;
+    font-weight: 600;
+}
+
+/* Hamburger toggle - hidden on large screens */
+.nav-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+
+/* Mobile behavior */
+@media (max-width: 720px) {
+    .header-top { padding: 0 0.75rem; }
+    .nav-toggle { display: inline-block; }
+    .main-nav { position: absolute; top: 64px; right: 0; background: #333; width: 100%; display: none; flex-direction: column; padding: 0.5rem 1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.2); }
+    .main-nav.open { display: flex; }
+    .nav-links { display: flex; flex-direction: column; gap: 0.5rem; }
+    .main-nav a { display: block; padding: 0.5rem; }
+    header h1 { font-size: 1.1rem; }
+}
+
+/* Ensure nav is inline on larger screens */
+@media (min-width: 721px) {
+    .main-nav { position: static; display: flex !important; background: transparent; box-shadow: none; width: auto; padding: 0; }
+    .nav-links { flex-direction: row; }
+}
+
 main {
     padding: 2rem;
     max-width: 800px;
@@ -50,29 +110,70 @@ form {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-label, input, textarea, button {
+/* Inputs and labels take full width inside forms */
+label,
+input,
+textarea {
     display: block;
     width: 100%;
     margin-bottom: 1rem;
 }
 
-input, textarea {
+input,
+textarea {
     padding: 0.5rem;
     border: 1px solid #ccc;
     border-radius: 4px;
 }
 
+/* Buttons should size naturally unless explicitly made full-width. This
+   avoids large full-width action bars (e.g. the "Cerrar sesión" button)
+   that overlap other content. Use .full-width on a button when desired. */
 button {
+    display: inline-block;
+    width: auto;
+    margin-bottom: 1rem;
     background-color: #5cb85c;
     color: white;
-    padding: 0.75rem;
+    padding: 0.5rem 0.75rem;
     border: none;
     border-radius: 4px;
     cursor: pointer;
 }
 
+button.full-width {
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+}
+
 button:hover {
     background-color: #4cae4c;
+}
+
+/* Table styling and spacing */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 2.5rem; /* espacio inferior más amplio */
+    background: #fff;
+}
+
+th,
+td {
+    border: 1px solid #666;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+}
+
+th {
+    background: #eee;
+}
+
+/* A bit of spacing around the "Resultados" header to avoid overlap */
+h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
 }
 
 a {

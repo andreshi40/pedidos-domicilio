@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Crear un Nuevo Usuario</h2>
+    <form action="{{ url_for('new_user') }}" method="POST">
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+        <br>
+        <label for="password">Contraseña:</label>
+        <input type="password" id="password" name="password" required>
+        <div id="pwd-message" style="color: #a94442; margin-top: 0.25rem; display:none;">La contraseña debe tener al menos 8 caracteres.</div>
+        <br>
+        <label for="role">Rol:</label>
+        <select id="role" name="role">
+            <option value="cliente" selected>cliente</option>
+            <option value="admin">admin</option>
+        </select>
+        <br>
+        <button type="submit">Crear usuario</button>
+    </form>
+        <script>
+            (function(){
+                const form = document.querySelector('form[action="{{ url_for("new_user") }}"]');
+                if (!form) return;
+                const pwd = document.getElementById('password');
+                const msg = document.getElementById('pwd-message');
+                form.addEventListener('submit', function(e){
+                    if (pwd && pwd.value.length < 8) {
+                        e.preventDefault();
+                        msg.style.display = 'block';
+                        pwd.focus();
+                    }
+                });
+                pwd && pwd.addEventListener('input', function(){
+                    if (pwd.value.length >= 8) msg.style.display = 'none';
+                });
+            })();
+        </script>
+{% endblock %}
