@@ -99,13 +99,13 @@ async def forward_get(service_name: str, path: str, request: Request):
 
     try:
         response = requests.get(service_url, params=request.query_params, headers=headers)
-        response.raise_for_status()
-        # forward JSON or text depending on service
+        # Forward the downstream status code and body transparently.
         try:
-            return response.json()
+            return JSONResponse(status_code=response.status_code, content=response.json())
         except ValueError:
             return JSONResponse(status_code=response.status_code, content={"detail": response.text})
     except requests.exceptions.RequestException as e:
+        # Network/connection errors should still map to 500 from the gateway.
         raise HTTPException(status_code=500, detail=f"Error forwarding request to {service_name}: {e}")
 
 # TODO: Implementa una ruta genérica para redirigir peticiones POST.
@@ -132,9 +132,9 @@ async def forward_post(service_name: str, path: str, request: Request):
         except Exception:
             body = None
         response = requests.post(service_url, json=body, headers=headers)
-        response.raise_for_status()
+        # Forward downstream status and body transparently.
         try:
-            return response.json()
+            return JSONResponse(status_code=response.status_code, content=response.json())
         except ValueError:
             return JSONResponse(status_code=response.status_code, content={"detail": response.text})
     except requests.exceptions.RequestException as e:
