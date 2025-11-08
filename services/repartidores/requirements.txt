@@ -8,6 +8,10 @@ uvicorn
 # psycopg2-binary
 # sqlalchemy
 
+# DB
+psycopg2-binary
+sqlalchemy
+
 # Si usas MongoDB:
 # motor
 # pymongo

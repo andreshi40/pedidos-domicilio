@@ -107,31 +107,7 @@ def services_json():
     return {"services": services}
 
 
-@app.route("/admin/users", methods=["GET", "POST"])
-def admin_users():
-    """Página para que un admin vea la lista de usuarios.
-
-    Si existe un access token en la sesión, el servidor lo usará para llamar
-    al API Gateway y obtener la lista; también permite hacer logout.
-    """
-    users = None
-    # logout action
-    if request.method == "POST" and request.form.get("action") == "logout":
-        session.pop("access_token", None)
-        flash("Sesión cerrada.")
-        return redirect(url_for("admin_users"))
-
-    token = session.get("access_token")
-    if token:
-        try:
-            resp = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/users", headers={"Authorization": f"Bearer {token}"}, timeout=5)
-            resp.raise_for_status()
-            users = resp.json().get("users", [])
-        except requests.exceptions.RequestException as e:
-            flash(f"Error llamando al API: {e}")
-            users = None
-
-    return render_template("admin_users.html", title="Usuarios (admin)", users=users)
+# Admin UI removed: admin user listing is no longer exposed via the frontend.
 
 
 
@@ -149,18 +125,26 @@ def login():
             if resp.status_code == 200:
                 token = resp.json().get("access_token")
                 if token:
-                    session["access_token"] = token
-                    # fetch user info to store email/role in session
+                    # store token only for non-admin users; admin login via frontend is disabled
+                    # fetch user info to check role
                     try:
                         me = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}, timeout=5)
                         if me.status_code == 200:
                             u = me.json()
+                            role = u.get("role")
+                            if role == 'admin':
+                                flash("El ingreso como administrador no está permitido desde esta interfaz.")
+                                return render_template("login.html", title="Login")
+                            # not admin: set session
+                            session["access_token"] = token
                             session["user_email"] = u.get("email")
-                            session["user_role"] = u.get("role")
+                            session["user_role"] = role
                     except requests.exceptions.RequestException:
-                        pass
+                        # if we cannot fetch /me, do not allow admin token to be stored
+                        flash("No se pudo verificar la información del usuario.")
+                        return render_template("login.html", title="Login")
                     flash("Login exitoso.")
-                    return redirect(url_for("admin_users"))
+                    return redirect(url_for("home"))
             # else show error
             msg = resp.json().get("detail") if resp.headers.get('content-type','').startswith('application/json') else resp.text
             flash(f"Login falló: {msg}")
@@ -187,6 +171,10 @@ def new_user():
         email = request.form.get("email")
         password = request.form.get("password")
         role = request.form.get("role") or "cliente"
+        # Do not allow creating admin users via the frontend
+        if role == 'admin':
+            flash('No está permitido crear usuarios con rol administrador desde esta interfaz.')
+            return render_template("new_user.html", title="Nuevo Usuario")
 
         if not email or not password:
             flash("Email y contraseña son requeridos para registrar un usuario.")
@@ -205,20 +193,23 @@ def new_user():
                 try:
                     login_resp = requests.post(f"{API_GATEWAY_URL}/api/v1/auth/login", json={"email": email, "password": password}, timeout=5)
                     if login_resp.status_code == 200:
-                        token = login_resp.json().get("access_token")
-                        if token:
-                            session["access_token"] = token
-                            # fetch user info
-                            try:
-                                me = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}, timeout=5)
-                                if me.status_code == 200:
-                                    u = me.json()
-                                    session["user_email"] = u.get("email")
-                                    session["user_role"] = u.get("role")
-                            except requests.exceptions.RequestException:
-                                pass
-                            flash("Registro correcto. Sesión iniciada.")
-                            return redirect(url_for("home"))
+                            token = login_resp.json().get("access_token")
+                            if token:
+                                # verify role before setting session
+                                try:
+                                    me = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}, timeout=5)
+                                    if me.status_code == 200:
+                                        u = me.json()
+                                        if u.get('role') == 'admin':
+                                            flash('No está permitido iniciar sesión como admin desde esta interfaz.')
+                                            return redirect(url_for('login'))
+                                        session["access_token"] = token
+                                        session["user_email"] = u.get("email")
+                                        session["user_role"] = u.get("role")
+                                except requests.exceptions.RequestException:
+                                    pass
+                                flash("Registro correcto. Sesión iniciada.")
+                                return redirect(url_for("home"))
                 except requests.exceptions.RequestException:
                     # Si falla el autologin, redirigimos al login manual
                     pass
@@ -244,19 +235,40 @@ def new_item_redirect():
 
 @app.route('/client')
 def client_index():
-    """Página pública para clientes: buscador de restaurantes."""
+    """Página pública para clientes: buscador de restaurantes.
+
+    Intenta primero usar el API Gateway; si devuelve 404 o falla, hace fallback
+    directo al servicio `restaurantes` (útil en entornos de desarrollo docker-compose).
+    """
     q = request.args.get('q')
+    restos = []
+    # Construir rutas
+    gw_path = f"/api/v1/restaurantes?q={q}" if q else "/api/v1/restaurantes?limit=20"
     try:
-        if q:
-            resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes?q={q}", timeout=5)
-        else:
-            resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes?limit=20", timeout=5)
+        resp = requests.get(f"{API_GATEWAY_URL}{gw_path}", timeout=5)
         if resp.status_code == 200:
             restos = resp.json().get('restaurantes') or resp.json()
         else:
-            restos = []
+            # si gateway respondió 404 o similar, intentar acceso directo al servicio restaurantes
+            if resp.status_code == 404:
+                try:
+                    direct_url = f"http://restaurantes-service:8002{gw_path}"
+                    dr = requests.get(direct_url, timeout=5)
+                    if dr.status_code == 200:
+                        restos = dr.json().get('restaurantes') or dr.json()
+                except requests.exceptions.RequestException:
+                    restos = []
+            else:
+                restos = []
     except requests.exceptions.RequestException:
-        restos = []
+        # gateway inaccesible: intento directo
+        try:
+            direct_url = f"http://restaurantes-service:8002{gw_path}"
+            dr = requests.get(direct_url, timeout=5)
+            if dr.status_code == 200:
+                restos = dr.json().get('restaurantes') or dr.json()
+        except requests.exceptions.RequestException:
+            restos = []
 
     return render_template('client_home.html', title='Buscar restaurantes', restaurantes=restos, q=q)
 
@@ -271,23 +283,72 @@ def restaurants_search():
 def restaurant_detail(rest_id):
     """Muestra detalle del restaurante y permite crear un pedido (cliente debe estar logueado)."""
     # Obtener info del restaurante y su menú desde el API Gateway
+    restaurante = None
+    menu = []
     try:
         r = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{rest_id}", timeout=5)
         if r.status_code == 200:
             restaurante = r.json()
         else:
-            flash('No se pudo obtener la información del restaurante.')
-            return redirect(url_for('client_index'))
+            # si gateway respondió 404 o similar, intentar acceso directo al servicio restaurantes
+            if r.status_code == 404:
+                try:
+                    direct_r = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}", timeout=5)
+                    if direct_r.status_code == 200:
+                        restaurante = direct_r.json()
+                except requests.exceptions.RequestException:
+                    restaurante = None
+            else:
+                restaurante = None
     except requests.exceptions.RequestException:
-        flash('Error conectando al gateway.')
+        # intento directo si el gateway no responde
+        try:
+            direct_r = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}", timeout=5)
+            if direct_r.status_code == 200:
+                restaurante = direct_r.json()
+        except requests.exceptions.RequestException:
+            restaurante = None
+
+    if not restaurante:
+        flash('No se pudo obtener la información del restaurante.')
         return redirect(url_for('client_index'))
 
-    # Obtener menú (si existe endpoint)
+    # Obtener menú (normalized contract: {"menu": [...]}) con fallback al servicio directo
     try:
         m = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{rest_id}/menu", timeout=5)
-        menu = m.json() if m.status_code == 200 else []
+        if m.status_code == 200:
+            data = m.json()
+            if isinstance(data, dict) and 'menu' in data:
+                menu = data.get('menu') or []
+            elif isinstance(data, list):
+                menu = data
+            else:
+                menu = []
+        else:
+            if m.status_code == 404:
+                try:
+                    direct_m = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/menu", timeout=5)
+                    if direct_m.status_code == 200:
+                        d = direct_m.json()
+                        if isinstance(d, dict) and 'menu' in d:
+                            menu = d.get('menu') or []
+                        elif isinstance(d, list):
+                            menu = d
+                except requests.exceptions.RequestException:
+                    menu = []
+            else:
+                menu = []
     except requests.exceptions.RequestException:
-        menu = []
+        try:
+            direct_m = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/menu", timeout=5)
+            if direct_m.status_code == 200:
+                d = direct_m.json()
+                if isinstance(d, dict) and 'menu' in d:
+                    menu = d.get('menu') or []
+                elif isinstance(d, list):
+                    menu = d
+        except requests.exceptions.RequestException:
+            menu = []
 
     if request.method == 'POST':
         # Crear pedido — requiere token en sesión
@@ -315,15 +376,70 @@ def restaurant_detail(rest_id):
             if resp.status_code in (200, 201):
                 order = resp.json()
                 order_id = order.get('id') or order.get('pedido_id') or order.get('order_id')
+                try:
+                    session['last_order_id'] = order_id
+                except Exception:
+                    pass
                 flash('Pedido creado correctamente.')
                 return redirect(url_for('order_status', order_id=order_id))
             else:
-                msg = resp.json().get('detail') if resp.headers.get('content-type','').startswith('application/json') else resp.text
-                flash(f'Error creando pedido: {msg}')
+                # si gateway devolvió 404 o similar, intentar enviar directamente al servicio de pedidos
+                if resp.status_code == 404:
+                    try:
+                        direct = requests.post("http://pedidos-service:8003/api/v1/pedidos", json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=5)
+                        if direct.status_code in (200,201):
+                            order = direct.json()
+                            order_id = order.get('id') or order.get('pedido_id') or order.get('order_id')
+                            try:
+                                session['last_order_id'] = order_id
+                            except Exception:
+                                pass
+                            flash('Pedido creado correctamente.')
+                            return redirect(url_for('order_status', order_id=order_id))
+                        else:
+                            msg = direct.json().get('detail') if direct.headers.get('content-type','').startswith('application/json') else direct.text
+                            flash(f'Error creando pedido (direct): {msg}')
+                    except requests.exceptions.RequestException:
+                        flash('No se pudo conectar al servicio de pedidos directamente.')
+                else:
+                    msg = resp.json().get('detail') if resp.headers.get('content-type','').startswith('application/json') else resp.text
+                    flash(f'Error creando pedido: {msg}')
         except requests.exceptions.RequestException as e:
-            flash(f'Error conectando al gateway: {e}')
+            # intento directo si el gateway no responde
+            try:
+                direct = requests.post("http://pedidos-service:8003/api/v1/pedidos", json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=5)
+                if direct.status_code in (200,201):
+                    order = direct.json()
+                    order_id = order.get('id') or order.get('pedido_id') or order.get('order_id')
+                    try:
+                        session['last_order_id'] = order_id
+                    except Exception:
+                        pass
+                    flash('Pedido creado correctamente.')
+                    return redirect(url_for('order_status', order_id=order_id))
+                else:
+                    msg = direct.json().get('detail') if direct.headers.get('content-type','').startswith('application/json') else direct.text
+                    flash(f'Error creando pedido (direct): {msg}')
+            except requests.exceptions.RequestException:
+                flash('Error conectando al gateway y al servicio de pedidos.')
 
-    return render_template('restaurant.html', title=restaurante.get('nombre','Restaurante'), restaurante=restaurante, menu=menu)
+    # If there's a last_order_id in session, try to fetch it and, if it belongs to this restaurant,
+    # pass it to the template so the page can show the order status inline.
+    current_order = None
+    order_id = session.get('last_order_id')
+    if order_id:
+        try:
+            headers = {"Authorization": f"Bearer {session.get('access_token')}"} if session.get('access_token') else {}
+            resp = requests.get(f"{API_GATEWAY_URL}/api/v1/pedidos/{order_id}", headers=headers, timeout=3)
+            if resp.status_code == 200:
+                pedido = resp.json()
+                # only show it on this restaurant page if it belongs to the current restaurant
+                if pedido.get('restaurante_id') == rest_id:
+                    current_order = pedido
+        except requests.exceptions.RequestException:
+            current_order = None
+
+    return render_template('restaurant.html', title=restaurante.get('nombre','Restaurante'), restaurante=restaurante, menu=menu, current_order=current_order)
 
 
 @app.route('/order/<order_id>')
@@ -343,6 +459,33 @@ def order_status(order_id):
         return redirect(url_for('client_index'))
 
     return render_template('order_confirm.html', title='Estado del pedido', pedido=pedido)
+
+
+
+@app.route('/api/order/<order_id>')
+def api_order_status(order_id):
+    """Proxy que devuelve el JSON del pedido llamando al API Gateway.
+    Esto permite al frontend hacer polling sin depender de CORS o exponer el gateway al cliente.
+    """
+    token = session.get('access_token')
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        resp = requests.get(f"{API_GATEWAY_URL}/api/v1/pedidos/{order_id}", headers=headers, timeout=5)
+        return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
+    except requests.exceptions.RequestException as e:
+        return ({"detail": str(e)}, 500)
+
+
+@app.route('/_debug/set_last/<order_id>', methods=['GET'])
+def _debug_set_last(order_id):
+    """Ruta de depuración (solo dev): establece session['last_order_id'] para facilitar pruebas E2E.
+    No debe usarse en producción.
+    """
+    try:
+        session['last_order_id'] = order_id
+        return {"ok": True, "last_order_id": order_id}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

@@ -198,3 +198,39 @@ a {
 .site-logo{ height:40px; width:40px; display:inline-block; vertical-align:middle; }
 
 .header-left{ display:flex; align-items:center; gap:0.5rem }
+
+/* Inline order panel */
+.order-inline {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    background: #fff8f5;
+    border: 1px solid #ffe6d9;
+    border-radius: 8px;
+}
+
+.order-inline h3 { margin-top: 0; }
+
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fff;
+}
+.badge.creado { background: #6c757d; }
+.badge.asignado { background: var(--brand-accent); }
+.badge.completado { background: #343a40; }
+
+.order-link {
+    display: inline-block;
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+    color: var(--brand-primary-dark);
+    border: 1px solid rgba(0,0,0,0.06);
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    background: white;
+}
+.order-link:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.07); }

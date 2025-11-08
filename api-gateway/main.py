@@ -43,7 +43,8 @@ def _is_auth_exempt(service_name: str, path: str) -> bool:
     p = path.lstrip("/")
     # Load configured public routes from env (cached per process)
     if not hasattr(_is_auth_exempt, "_public_patterns"):
-        raw = os.getenv("PUBLIC_ROUTES", "auth:login,auth:register,auth:health")
+        # by default allow auth endpoints and restaurantes public listing/menu
+        raw = os.getenv("PUBLIC_ROUTES", "auth:login,auth:register,auth:health,restaurantes:*")
         patterns = []
         for part in [p.strip() for p in raw.split(",") if p.strip()]:
             # expected format service:route or service:route*

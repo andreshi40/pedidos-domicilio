@@ -4,8 +4,8 @@
 <h2>Estado del pedido</h2>
 
 {% if pedido %}
-    <p>ID: {{ pedido.get('id') or pedido.get('pedido_id') or pedido.get('order_id') }}</p>
-    <p>Estado: {{ pedido.get('estado') or pedido.get('status') }}</p>
+    <p>ID: <span id="order-id">{{ pedido.get('id') or pedido.get('pedido_id') or pedido.get('order_id') }}</span></p>
+    <p>Estado: <span id="order-estado">{{ pedido.get('estado') or pedido.get('status') }}</span></p>
     <h3>Items</h3>
     <ul>
     {% for it in pedido.get('items',[]) %}
@@ -18,6 +18,46 @@
         <p>Nombre: {{ pedido.repartidor.get('nombre') }}</p>
         <p>Teléfono: {{ pedido.repartidor.get('telefono') }}</p>
     {% endif %}
+
+    <div id="dynamic-repartidor">
+        <!-- Aquí se mostrará la info del repartidor cuando sea asignado -->
+    </div>
+
+    <script>
+    // Polling simple para actualizar el estado del pedido y mostrar el repartidor asignado
+    (function(){
+        const orderId = document.getElementById('order-id').innerText.trim();
+        const estadoEl = document.getElementById('order-estado');
+        const repContainer = document.getElementById('dynamic-repartidor');
+
+        async function fetchStatus(){
+            try{
+                const resp = await fetch(`/api/order/${orderId}`);
+                if(!resp.ok) return;
+                const data = await resp.json();
+                const estado = data.estado || data.status || '';
+                estadoEl.innerText = estado;
+
+                const rep = data.repartidor;
+                if(rep){
+                    repContainer.innerHTML = `\n                        <h3>Repartidor asignado</h3>\n                        <p id="rep-nombre">Nombre: ${rep.nombre || rep.name || ''}</p>\n                        <p id="rep-tel">Teléfono: ${rep.telefono || ''}</p>\n                    `;
+                } else {
+                    repContainer.innerHTML = '<p>Aún no se ha asignado repartidor.</p>';
+                }
+                // Si el pedido aún no está completado, seguimos haciendo polling
+                if(estado !== 'completado'){
+                    setTimeout(fetchStatus, 3000);
+                }
+            }catch(e){
+                // on error, reintentar más tarde
+                setTimeout(fetchStatus, 5000);
+            }
+        }
+
+        // arrancar polling una vez cargada la página
+        setTimeout(fetchStatus, 500);
+    })();
+    </script>
 
 {% else %}
     <p>No se encontró el pedido.</p>

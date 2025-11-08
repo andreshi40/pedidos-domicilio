@@ -2,11 +2,10 @@
 fastapi
 uvicorn
 
-# TODO: Agrega las librerías específicas de tu servicio aquí
-
-# Por ejemplo, si usas PostgreSQL:
-# psycopg2-binary
-# sqlalchemy
+# Dependencias para persistencia y llamadas HTTP entre servicios
+psycopg2-binary
+sqlalchemy
+requests
 
 # Si usas MongoDB:
 # motor

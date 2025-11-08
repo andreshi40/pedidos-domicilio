@@ -57,9 +57,22 @@ services:
      ports:
        - "8002:8002"
      environment:
-       - DATABASE_URL=postgresql://user:password@service1-db:5432/service1_db
+       - DATABASE_URL=postgresql://user:password@restaurantes-db:5432/service1_db
      depends_on:
        - restaurantes-db
+
+  # Microservicio de Repartidores
+  repartidores-service:
+    build: ./services/repartidores
+    container_name: repartidores-service
+    env_file:
+      - .env
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql://user:password@repartidores-db:5432/repartidores_db
+    depends_on:
+      - repartidores-db
 
   # Base de datos para el servicio1
   restaurantes-db:
@@ -72,7 +85,7 @@ services:
      ports:
        - "5432:5432"
      volumes:
-       - restaurantes_data:/var/lib/postgresql/data
+      - restaurantes_data:/var/lib/postgresql
 
   # Microservicio de Pedidos
   pedidos-service:
@@ -100,7 +113,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - pedidos_data:/var/lib/postgresql/data
+      - pedidos_data:/var/lib/postgresql
 
   # Redis para caché/sesiones/coordination
   redis:
@@ -110,6 +123,19 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+
+  # Base de datos para Repartidores
+  repartidores-db:
+    image: postgres:latest
+    container_name: repartidores-db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=repartidores_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - repartidores_data:/var/lib/postgresql
 
 volumes:
   auth_data:

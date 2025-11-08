@@ -1,51 +1,69 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import declarative_base
-from datetime import datetime
-
+from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy.orm import declarative_base, relationship
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
-# Define la base declarativa
+
+# Declarative base used by the service
 Base = declarative_base()
 
-# TODO: Crea tus modelos de datos aquí.
-# Cada clase de modelo representa una tabla en tu base de datos.
-# Debes renombrar YourModel por el nombre de la Clase según el servicio
-class YourModel(Base):
-    """
-    Plantilla de modelo de datos para un recurso.
-    Ajusta esta clase según los requisitos de tu tema.
-    """
-    __tablename__ = "[nombre_de_tu_tabla]"
 
-    # Columnas de la tabla
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    description = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
+class RestauranteORM(Base):
+    __tablename__ = "restaurantes"
 
-    # TODO: Agrega más columnas según sea necesario.
-    # Por ejemplo:
-    # is_active = Column(Boolean, default=True)
-    # foreign_key_id = Column(Integer, ForeignKey("otra_tabla.id"))
+    id = Column(String, primary_key=True, index=True)
+    nombre = Column(String, nullable=False)
+    direccion = Column(String)
+    descripcion = Column(String)
+    rating = Column(Float, nullable=True)
 
-    def __repr__(self):
-        return f"<YourModel(id={self.id}, name='{self.name}')>"
+    menu = relationship("MenuItemORM", back_populates="restaurante", cascade="all, delete-orphan")
 
-# TODO: Define los modelos Pydantic para la validación de datos.
-# Estos modelos se usarán en los endpoints de FastAPI para validar la entrada y salida.
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "nombre": self.nombre,
+            "direccion": self.direccion,
+            "descripcion": self.descripcion,
+            "rating": float(self.rating) if self.rating is not None else None,
+        }
 
-class YourModelBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    # TODO: Agrega los campos que se necesitan para crear o actualizar un recurso.
 
-class YourModelCreate(YourModelBase):
-    pass
+class MenuItemORM(Base):
+    __tablename__ = "menu_items"
 
-class YourModelRead(YourModelBase):
-    id: int
-    created_at: datetime
-    
+    id = Column(String, primary_key=True, index=True)
+    restaurante_id = Column(String, ForeignKey("restaurantes.id"), index=True)
+    nombre = Column(String, nullable=False)
+    precio = Column(Float, nullable=False)
+    cantidad = Column(Integer, nullable=False, default=0)
+
+    restaurante = relationship("RestauranteORM", back_populates="menu")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "restaurante_id": self.restaurante_id,
+            "nombre": self.nombre,
+            "precio": float(self.precio),
+            "cantidad": int(self.cantidad),
+        }
+
+
+# Pydantic models for API responses/validation
+class MenuItem(BaseModel):
+    id: str
+    nombre: str
+    precio: float
+    cantidad: int
+
+
+class Restaurante(BaseModel):
+    id: str
+    nombre: str
+    direccion: Optional[str] = None
+    descripcion: Optional[str] = None
+    rating: Optional[float] = None
+
     class Config:
-        orm_mode = True # Habilita la compatibilidad con ORM
+        orm_mode = True

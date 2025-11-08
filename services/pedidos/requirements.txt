@@ -2,11 +2,15 @@
 fastapi
 uvicorn
 
+# HTTP client for internal service-to-service calls
+requests
+
 # TODO: Agrega las librerías específicas de tu servicio aquí
 
 # Por ejemplo, si usas PostgreSQL:
-# psycopg2-binary
-# sqlalchemy
+# Dependencias para Postgres y ORM
+psycopg2-binary
+sqlalchemy
 
 # Si usas MongoDB:
 # motor
