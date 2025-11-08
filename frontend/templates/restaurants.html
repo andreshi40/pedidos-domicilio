@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Resultados de búsqueda</h2>
+
+{% if restaurantes %}
+    <ul>
+    {% for r in restaurantes %}
+        <li>
+            <a href="{{ url_for('restaurant_detail', rest_id=r.get('id') or r.get('_id') or r.get('restaurante_id')) }}">{{ r.get('nombre') or r.get('name') }}</a>
+            — {{ r.get('direccion','') }}
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No hay resultados.</p>
+{% endif %}
+
+{% endblock %}

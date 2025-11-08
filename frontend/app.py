@@ -242,5 +242,107 @@ def new_user():
 def new_item_redirect():
     return redirect(url_for('new_user'))
 
+@app.route('/client')
+def client_index():
+    """Página pública para clientes: buscador de restaurantes."""
+    q = request.args.get('q')
+    try:
+        if q:
+            resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes?q={q}", timeout=5)
+        else:
+            resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes?limit=20", timeout=5)
+        if resp.status_code == 200:
+            restos = resp.json().get('restaurantes') or resp.json()
+        else:
+            restos = []
+    except requests.exceptions.RequestException:
+        restos = []
+
+    return render_template('client_home.html', title='Buscar restaurantes', restaurantes=restos, q=q)
+
+
+@app.route('/restaurants')
+def restaurants_search():
+    q = request.args.get('q')
+    return redirect(url_for('client_index', q=q))
+
+
+@app.route('/restaurants/<rest_id>', methods=['GET', 'POST'])
+def restaurant_detail(rest_id):
+    """Muestra detalle del restaurante y permite crear un pedido (cliente debe estar logueado)."""
+    # Obtener info del restaurante y su menú desde el API Gateway
+    try:
+        r = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{rest_id}", timeout=5)
+        if r.status_code == 200:
+            restaurante = r.json()
+        else:
+            flash('No se pudo obtener la información del restaurante.')
+            return redirect(url_for('client_index'))
+    except requests.exceptions.RequestException:
+        flash('Error conectando al gateway.')
+        return redirect(url_for('client_index'))
+
+    # Obtener menú (si existe endpoint)
+    try:
+        m = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{rest_id}/menu", timeout=5)
+        menu = m.json() if m.status_code == 200 else []
+    except requests.exceptions.RequestException:
+        menu = []
+
+    if request.method == 'POST':
+        # Crear pedido — requiere token en sesión
+        token = session.get('access_token')
+        if not token:
+            flash('Debes iniciar sesión para hacer un pedido.')
+            return redirect(url_for('login'))
+
+        direccion = request.form.get('direccion')
+        items = []
+        # items esperados como item_<id>=cantidad
+        for k, v in request.form.items():
+            if k.startswith('item_') and v and int(v) > 0:
+                item_id = k.split('_', 1)[1]
+                items.append({'item_id': item_id, 'cantidad': int(v)})
+
+        payload = {
+            'restaurante_id': rest_id,
+            'cliente_email': session.get('user_email'),
+            'direccion': direccion,
+            'items': items
+        }
+        try:
+            resp = requests.post(f"{API_GATEWAY_URL}/api/v1/pedidos", json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=5)
+            if resp.status_code in (200, 201):
+                order = resp.json()
+                order_id = order.get('id') or order.get('pedido_id') or order.get('order_id')
+                flash('Pedido creado correctamente.')
+                return redirect(url_for('order_status', order_id=order_id))
+            else:
+                msg = resp.json().get('detail') if resp.headers.get('content-type','').startswith('application/json') else resp.text
+                flash(f'Error creando pedido: {msg}')
+        except requests.exceptions.RequestException as e:
+            flash(f'Error conectando al gateway: {e}')
+
+    return render_template('restaurant.html', title=restaurante.get('nombre','Restaurante'), restaurante=restaurante, menu=menu)
+
+
+@app.route('/order/<order_id>')
+def order_status(order_id):
+    """Muestra el estado de un pedido y datos del repartidor si están disponibles."""
+    token = session.get('access_token')
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        resp = requests.get(f"{API_GATEWAY_URL}/api/v1/pedidos/{order_id}", headers=headers, timeout=5)
+        if resp.status_code == 200:
+            pedido = resp.json()
+        else:
+            flash('No se pudo obtener el estado del pedido.')
+            return redirect(url_for('client_index'))
+    except requests.exceptions.RequestException:
+        flash('Error conectando al gateway.')
+        return redirect(url_for('client_index'))
+
+    return render_template('order_confirm.html', title='Estado del pedido', pedido=pedido)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

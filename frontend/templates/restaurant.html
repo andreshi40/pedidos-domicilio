@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{{ restaurante.get('nombre') or restaurante.get('name') }}</h2>
+<p>{{ restaurante.get('direccion','') }}</p>
+<p class="muted">{{ restaurante.get('descripcion','') }}</p>
+
+<form method="post">
+    <h3>Menú</h3>
+    {% if menu %}
+        <table class="menu-table">
+            <thead><tr><th>Item</th><th>Precio</th><th>Cantidad</th></tr></thead>
+            <tbody>
+            {% for it in menu %}
+                <tr>
+                    <td>{{ it.get('nombre') or it.get('name') }}</td>
+                    <td>{{ it.get('precio') or it.get('price') }}</td>
+                    <td><input type="number" name="item_{{ it.get('id') or it.get('_id') or it.get('item_id') }}" min="0" value="0"></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>El menú no está disponible.</p>
+    {% endif %}
+
+    <label for="direccion">Dirección de entrega</label>
+    <input type="text" name="direccion" id="direccion" required>
+
+    <button type="submit">Realizar pedido</button>
+</form>
+
+{% endblock %}

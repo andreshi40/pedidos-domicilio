@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Buscar restaurantes</h2>
+
+<form action="{{ url_for('restaurants_search') }}" method="get" class="search-form">
+    <input type="text" name="q" placeholder="Buscar por nombre, barrio o cocina" value="{{ q or '' }}">
+    <button type="submit">Buscar</button>
+</form>
+
+{% if restaurantes %}
+    <ul class="rest-list">
+    {% for r in restaurantes %}
+        <li class="rest-card">
+            <h3><a href="{{ url_for('restaurant_detail', rest_id=r.get('id') or r.get('_id') or r.get('restaurante_id')) }}">{{ r.get('nombre') or r.get('name') }}</a></h3>
+            <p>{{ r.get('direccion','') }}</p>
+            <p class="muted">{{ r.get('cocina','') }}</p>
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No se encontraron restaurantes. Intenta otra búsqueda.</p>
+{% endif %}
+
+{% endblock %}

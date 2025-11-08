@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Estado del pedido</h2>
+
+{% if pedido %}
+    <p>ID: {{ pedido.get('id') or pedido.get('pedido_id') or pedido.get('order_id') }}</p>
+    <p>Estado: {{ pedido.get('estado') or pedido.get('status') }}</p>
+    <h3>Items</h3>
+    <ul>
+    {% for it in pedido.get('items',[]) %}
+        <li>{{ it.get('nombre') or it.get('name') }} x {{ it.get('cantidad') }}</li>
+    {% endfor %}
+    </ul>
+
+    {% if pedido.get('repartidor') %}
+        <h3>Repartidor asignado</h3>
+        <p>Nombre: {{ pedido.repartidor.get('nombre') }}</p>
+        <p>Teléfono: {{ pedido.repartidor.get('telefono') }}</p>
+    {% endif %}
+
+{% else %}
+    <p>No se encontró el pedido.</p>
+{% endif %}
+
+{% endblock %}
