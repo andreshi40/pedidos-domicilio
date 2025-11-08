@@ -3,15 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - Taller de Microservicios</title>
+    <title>{{ title }} - deliapp</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <header>
-        <h1>{{ title }}</h1>
-        <nav>
-            <a href="{{ url_for('index') }}">Inicio</a>
+        <div class="header-top">
+            <div class="header-left">
+                <img src="{{ url_for('static', filename='logo.svg') }}" alt="Logo" class="site-logo">
+                <h1>{{ title }}</h1>
+            </div>
+            <button id="nav-toggle" class="nav-toggle" aria-label="Abrir menú">☰</button>
+            <nav class="main-nav" id="main-nav">
+                <div class="nav-links">
+                  <a href="{{ url_for('index') }}">Inicio</a>
+                  <a href="{{ url_for('home') }}">Home</a>
+                  <a href="{{ url_for('new_user') }}">Crear usuario</a>
+                  <a href="{{ url_for('admin_users') }}">Usuarios</a>
+                {% if session.access_token %}
+                    <span class="nav-user">{{ session.user_email }}</span>
+                    <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Iniciar sesión</a>
+                {% endif %}
+                </div>
             </nav>
+        </div>
     </header>
 
     <main>
@@ -19,7 +36,26 @@
     </main>
 
     <footer>
-        <p>&copy; 2025 Proyecto de Seminario</p>
+        <p>&copy; 2025 deliapp</p>
     </footer>
 </body>
+<script>
+    // Toggle navigation for small screens
+    (function(){
+        const btn = document.getElementById('nav-toggle');
+        const nav = document.getElementById('main-nav');
+        if (!btn || !nav) return;
+        btn.addEventListener('click', function(){
+            nav.classList.toggle('open');
+            const expanded = nav.classList.contains('open');
+            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+        // close menu on navigation
+        nav.addEventListener('click', function(e){
+            if (e.target.tagName === 'A' && nav.classList.contains('open')) {
+                nav.classList.remove('open');
+            }
+        });
+    })();
+</script>
 </html>

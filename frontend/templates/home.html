@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>Home — Microservicios</h2>
+  <p>Estado rápido de los servicios. Refresca la página para actualizar.</p>
+  <p><button id="refresh-btn">Actualizar</button></p>
+
+  <div class="svc-grid" id="svc-grid">
+    {% for s in services %}
+  <div class="svc-card">
+        <h3>{{ s.name }}</h3>
+        <p><strong>Endpoint:</strong> <a href="{{ s.health }}" target="_blank">{{ s.health }}</a></p>
+        {% if s.status == 'up' %}
+          <span class="svc-up">UP</span>
+        {% else %}
+          <span class="svc-down">DOWN</span>
+        {% endif %}
+        <div class="svc-detail"><strong>Detalle:</strong>
+          <pre style="white-space:pre-wrap;">{{ s.detail }}</pre>
+        </div>
+      </div>
+    {% endfor %}
+
+  </div>
+
+  <script>
+    async function refreshServices() {
+      const btn = document.getElementById('refresh-btn');
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = 'Actualizando...';
+      try {
+        const resp = await fetch('{{ url_for("services_json") }}', { credentials: 'same-origin' });
+        if (resp.status === 401) {
+          // not authenticated -> redirect to login
+          window.location = '{{ url_for("login") }}';
+          return;
+        }
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const grid = document.getElementById('svc-grid');
+        grid.innerHTML = '';
+        data.services.forEach(s => {
+          const card = document.createElement('div');
+          card.className = 'svc-card';
+          const detail = typeof s.detail === 'string' ? s.detail : JSON.stringify(s.detail, null, 2);
+          card.innerHTML = `
+            <h3>${s.name}</h3>
+            <p><strong>Endpoint:</strong> <a href="${s.health}" target="_blank">${s.health}</a></p>
+            ${s.status === 'up' ? '<span class="svc-up">UP</span>' : '<span class="svc-down">DOWN</span>'}
+            <div class="svc-detail"><strong>Detalle:</strong><pre style="white-space:pre-wrap;">${detail}</pre></div>`;
+          grid.appendChild(card);
+        });
+      } catch (e) {
+        alert('Error al obtener estados: ' + e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', refreshServices);
+  </script>
+
+  <p><a href="{{ url_for('index') }}">Volver</a></p>
+
+{% endblock %}

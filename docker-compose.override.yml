@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  authentication:
+    # Monta el código local para desarrollo y arranca uvicorn con --reload
+    build:
+      context: ./services/authentication
+      dockerfile: Dockerfile
+    image: pedidos-auth:dev
+    volumes:
+      - ./services/authentication:/app:delegated
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8001 --reload"
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true

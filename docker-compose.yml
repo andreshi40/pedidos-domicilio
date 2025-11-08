@@ -3,6 +3,8 @@ services:
   frontend:
     build: ./frontend
     container_name: frontend
+    env_file:
+      - .env
     ports:
       - "5000:5000"
     environment:
@@ -13,16 +15,20 @@ services:
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     depends_on:
-      - auth-service
+      - authentication
     # Aquí puedes agregar los otros servicios base
 
   # Microservicio de Autenticación
-  auth-service:
+  authentication:
     build: ./services/authentication
-    container_name: auth-service
+    container_name: authentication
+    env_file:
+      - .env
     ports:
       - "8001:8001"
     environment:
@@ -43,20 +49,22 @@ services:
   # TODO: Copiar y modificar "service1" para cada servicio según el tema seleccionado
   
   # Microservicio de Nombre_del_microservicio
-  service1-service:
-     build: ./services/service1 
-     container_name: service1-service
+  restaurantes-service:
+     build: ./services/restaurantes
+     container_name: restaurantes-service
+     env_file:
+      - .env
      ports:
        - "8002:8002"
      environment:
        - DATABASE_URL=postgresql://user:password@service1-db:5432/service1_db
      depends_on:
-       - service1-db
+       - restaurantes-db
 
   # Base de datos para el servicio1
-  service1-db:
+  restaurantes-db:
      image: postgres:latest
-     container_name: service1-db
+     container_name: restaurantes-db
      environment:
        - POSTGRES_USER=user
        - POSTGRES_PASSWORD=password
@@ -64,10 +72,48 @@ services:
      ports:
        - "5432:5432"
      volumes:
-       - service1_data:/var/lib/postgresql/data
+       - restaurantes_data:/var/lib/postgresql/data
+
+  # Microservicio de Pedidos
+  pedidos-service:
+    build: ./services/pedidos
+    container_name: pedidos-service
+    env_file:
+      - .env
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql://user:password@pedidos-db:5432/pedidos_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - pedidos-db
+      - redis
+
+  # Base de datos para Pedidos
+  pedidos-db:
+    image: postgres:latest
+    container_name: pedidos-db
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=pedidos_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pedidos_data:/var/lib/postgresql/data
+
+  # Redis para caché/sesiones/coordination
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
 
 volumes:
   auth_data:
-  service1_data:
-  service2_data:
-  service3_data:
+  restaurantes_data:
+  pedidos_data:
+  repartidores_data:
+  redis_data:
