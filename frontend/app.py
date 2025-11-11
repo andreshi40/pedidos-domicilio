@@ -476,6 +476,32 @@ def api_order_status(order_id):
         return ({"detail": str(e)}, 500)
 
 
+@app.route('/api/restaurantes/<rest_id>/menu')
+def api_rest_menu(rest_id):
+    """Proxy para obtener el menú de un restaurante desde el servidor (permite polling desde el navegador).
+    Intenta API Gateway y si falla, hace fallback al servicio `restaurantes` directo dentro de la red docker-compose.
+    """
+    try:
+        resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{rest_id}/menu", timeout=4)
+        if resp.status_code == 200:
+            return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
+        else:
+            # si gateway devuelve 404 o similar, intentamos el servicio directo
+            if resp.status_code == 404:
+                try:
+                    direct = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/menu", timeout=4)
+                    return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','application/json')})
+                except requests.exceptions.RequestException:
+                    return ({"menu": []}, 502)
+            return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
+    except requests.exceptions.RequestException:
+        try:
+            direct = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/menu", timeout=4)
+            return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','application/json')})
+        except requests.exceptions.RequestException as e:
+            return ({"detail": str(e)}, 500)
+
+
 @app.route('/_debug/set_last/<order_id>', methods=['GET'])
 def _debug_set_last(order_id):
     """Ruta de depuración (solo dev): establece session['last_order_id'] para facilitar pruebas E2E.

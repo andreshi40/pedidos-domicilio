@@ -9,6 +9,33 @@
     <p><a class="btn" href="{{ url_for('order_status', order_id=session.get('last_order_id')) }}">Ver último pedido</a></p>
 {% endif %}
 
+<script>
+// Poll menu stock periodically and update the DOM so the user sees changes after ordering
+(function(){
+    const restId = "{{ restaurante.get('id') }}";
+    async function updateMenu(){
+        try{
+            const resp = await fetch(`/api/restaurantes/${restId}/menu`);
+            if(!resp.ok) return;
+            const data = await resp.json();
+            const menu = (data && data.menu) ? data.menu : data;
+            if(!Array.isArray(menu)) return;
+            menu.forEach(it => {
+                const id = it.id || it.item_id;
+                const stockEl = document.getElementById('stock-' + id);
+                if(stockEl) stockEl.innerText = (typeof it.cantidad !== 'undefined') ? it.cantidad : (it.cantidad || '');
+            });
+        }catch(e){
+            // ignore errors silently
+        }
+    }
+
+    // Update right away and then every 3s
+    updateMenu();
+    setInterval(updateMenu, 3000);
+})();
+</script>
+
 <form method="post">
     <h3>Menú</h3>
     {% if menu %}
@@ -26,10 +53,13 @@
                     {% set item_nombre = it %}
                     {% set item_precio = '' %}
                 {% endif %}
-                <tr>
+                <tr data-item-id="{{ item_id }}">
                     <td>{{ item_nombre }}</td>
                     <td>{{ item_precio }}</td>
-                    <td><input type="number" name="item_{{ item_id }}" min="0" value="0"></td>
+                    <td>
+                        <input type="number" name="item_{{ item_id }}" min="0" value="0">
+                        <div class="stock">Disponible: <span id="stock-{{ item_id }}">{{ it.get('cantidad') if it is mapping else '' }}</span></div>
+                    </td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -101,5 +131,6 @@
         setTimeout(fetchStatus, 500);
     })();
     </script>
+        
     {% endblock %}
 {% endif %}
