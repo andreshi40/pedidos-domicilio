@@ -93,11 +93,20 @@ async def forward_get(service_name: str, path: str, request: Request):
     # Build target URL including the service's own API prefix so that
     # gateway /api/v1/restaurantes/... maps to restaurantes-service:/api/v1/restaurantes/...
     base = SERVICES[service_name].rstrip('/')
-    svc_prefix = f"/api/v1/{service_name}"
-    if path:
-        service_url = f"{base}{svc_prefix}/{path}"
+    # Special-case the auth service: its endpoints are mounted at root (e.g. /login)
+    # so we must not prepend /api/v1/auth when forwarding. Other services keep
+    # their own /api/v1/{service} prefix to preserve internal routing.
+    if service_name == "auth":
+        if path:
+            service_url = f"{base}/{path}"
+        else:
+            service_url = f"{base}/"
     else:
-        service_url = f"{base}{svc_prefix}"
+        svc_prefix = f"/api/v1/{service_name}"
+        if path:
+            service_url = f"{base}{svc_prefix}/{path}"
+        else:
+            service_url = f"{base}{svc_prefix}"
 
     # Validate token unless endpoint is exempt (e.g. auth/login, auth/register, auth/health)
     headers = {k: v for k, v in request.headers.items()}
@@ -133,11 +142,18 @@ async def forward_post(service_name: str, path: str, request: Request):
     # Build target URL including the service's own API prefix so that
     # gateway /api/v1/restaurantes/... maps to restaurantes-service:/api/v1/restaurantes/...
     base = SERVICES[service_name].rstrip('/')
-    svc_prefix = f"/api/v1/{service_name}"
-    if path:
-        service_url = f"{base}{svc_prefix}/{path}"
+    # Mirror same auth special-case for POST routing.
+    if service_name == "auth":
+        if path:
+            service_url = f"{base}/{path}"
+        else:
+            service_url = f"{base}/"
     else:
-        service_url = f"{base}{svc_prefix}"
+        svc_prefix = f"/api/v1/{service_name}"
+        if path:
+            service_url = f"{base}{svc_prefix}/{path}"
+        else:
+            service_url = f"{base}{svc_prefix}"
 
     headers = {k: v for k, v in request.headers.items()}
     if not _is_auth_exempt(service_name, path):
