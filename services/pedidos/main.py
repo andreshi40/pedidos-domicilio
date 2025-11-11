@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Base, OrderORM, OrderItemORM
 import time
+import threading
 
 app = FastAPI()
 
@@ -49,6 +50,7 @@ class OrderOut(BaseModel):
 # service endpoints
 REPARTIDORES_URL_BASE = os.getenv("REPARTIDORES_URL", "http://repartidores-service:8004/api/v1/repartidores")
 RESTAURANTES_URL_BASE = os.getenv("RESTAURANTES_URL", "http://restaurantes-service:8002")
+BACKGROUND_ASSIGN_INTERVAL = int(os.getenv("BACKGROUND_ASSIGN_INTERVAL", "5"))
 
 
 @app.on_event("startup")
@@ -163,6 +165,49 @@ def create_pedido(payload: OrderCreate):
         db.commit()
     finally:
         db.close()
+
+
+# Background assigner: periodically scans for orders in 'creado' without repartidor
+# and attempts to assign using the repartidores assign-next endpoint. This reduces
+# the chance an order remains unassigned if initial assignment failed due to no
+# available repartidores.
+def _background_assigner_loop():
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                pending = db.query(OrderORM).filter(OrderORM.estado == 'creado').all()
+                for o in pending:
+                    # skip if already has repartidor snapshot
+                    if getattr(o, 'repartidor_id', None):
+                        continue
+                    try:
+                        assign_url = f"{REPARTIDORES_URL_BASE}/assign-next"
+                        r = requests.post(assign_url, timeout=3)
+                        if r.status_code == 200:
+                            rep = r.json()
+                            o.repartidor_id = rep.get('id')
+                            o.repartidor_nombre = rep.get('nombre')
+                            o.repartidor_telefono = rep.get('telefono')
+                            o.estado = 'asignado'
+                            db.add(o)
+                            db.commit()
+                    except Exception:
+                        # ignore and continue with next order
+                        db.rollback()
+                        continue
+            finally:
+                db.close()
+        except Exception:
+            # top-level protection: sleep and continue
+            pass
+        time.sleep(BACKGROUND_ASSIGN_INTERVAL)
+
+
+@app.on_event("startup")
+def start_background_assigner():
+    t = threading.Thread(target=_background_assigner_loop, daemon=True, name="assigner-thread")
+    t.start()
 
     # assign repartidor
     rep = _assign_repartidor()
