@@ -36,7 +36,224 @@
 })();
 </script>
 
-<form method="post">
+<script>
+// Client-side live preview of the order and basic validation to avoid accidental submit/reload
+(function(){
+    const form = document.getElementById('order-form');
+    if(!form) return;
+    const preview = document.getElementById('order-preview');
+    const previewItems = document.getElementById('preview-items');
+    const previewTotal = document.getElementById('preview-total');
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    function parseInputs(){
+        const data = [];
+        let total = 0;
+        const inputs = form.querySelectorAll('input[name^="item_"]');
+        inputs.forEach(inp => {
+            const qty = parseInt(inp.value, 10) || 0;
+            if(qty > 0){
+                const itemId = inp.name.split('_',2)[1];
+                const row = inp.closest('tr');
+                const name = row ? (row.querySelector('td') ? row.querySelector('td').innerText.trim() : itemId) : itemId;
+                const priceCell = row ? row.querySelectorAll('td')[1] : null;
+                const price = priceCell ? parseFloat(priceCell.innerText) || 0 : 0;
+                const stockEl = document.getElementById('stock-' + itemId);
+                const stock = stockEl ? (parseInt(stockEl.innerText,10) || 0) : 0;
+                data.push({item_id: itemId, nombre: name, cantidad: qty, precio: price, stock: stock});
+                total += price * qty;
+            }
+        });
+        return {items: data, total};
+    }
+
+    function renderPreview(){
+        const parsed = parseInputs();
+        previewItems.innerHTML = '';
+        // If no items selected, hide preview and disable submit
+        if(parsed.items.length === 0){
+            preview.style.display = 'none';
+            submitBtn.disabled = true;
+            previewTotal.innerText = '0.00';
+            const note = document.getElementById('preview-note');
+            if(note) note.innerText = 'Revisa las cantidades y tu dirección antes de confirmar.';
+            return;
+        }
+
+        // Check stock for all items; if any requested > stock, show message and disable submit
+        let stockOk = true;
+        let stockMsg = '';
+        parsed.items.forEach(it => {
+            if(typeof it.stock !== 'undefined' && it.cantidad > it.stock){
+                stockOk = false;
+                stockMsg = `Stock insuficiente para ${it.nombre} (disponible: ${it.stock})`;
+            }
+        });
+
+        if(!stockOk){
+            const li = document.createElement('li');
+            li.innerText = stockMsg;
+            previewItems.appendChild(li);
+            previewTotal.innerText = parsed.total.toFixed(2);
+            preview.style.display = '';
+            submitBtn.disabled = true;
+            const note = document.getElementById('preview-note');
+            if(note) note.innerText = stockMsg;
+            return;
+        }
+
+        // Otherwise render selected items normally
+        parsed.items.forEach(it => {
+            const li = document.createElement('li');
+            li.innerText = `${it.nombre} x ${it.cantidad} — $${(it.precio*it.cantidad).toFixed(2)}`;
+            previewItems.appendChild(li);
+        });
+        previewTotal.innerText = parsed.total.toFixed(2);
+        preview.style.display = '';
+        submitBtn.disabled = false;
+    }
+
+    // Prevent Enter key on number inputs from submitting the form (common UX issue)
+    form.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' && e.target && e.target.matches('input[type="number"]')){
+            e.preventDefault();
+        }
+    });
+
+    // Listen for changes on quantity inputs
+    form.addEventListener('input', function(e){
+        if(e.target && e.target.name && e.target.name.startsWith('item_')){
+            renderPreview();
+        }
+    });
+
+    // initial render (in case template pre-populates values)
+    renderPreview();
+</script>
+
+<script>
+// Submit the order via AJAX to the frontend proxy (/api/pedidos)
+(function(){
+    const form = document.getElementById('order-form');
+    const resultEl = document.getElementById('order-result');
+    if(!form) return;
+
+    form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        resultEl.style.display = '';
+        resultEl.innerText = 'Enviando pedido...';
+        const direccion = document.getElementById('direccion').value || '';
+        const inputs = form.querySelectorAll('input[name^="item_"]');
+        const items = [];
+        // use for-of so we can break/return on validation errors
+        for(const inp of inputs){
+            const qty = parseInt(inp.value, 10) || 0;
+            if(qty > 0){
+                const itemId = inp.name.split('_',2)[1];
+                const stockEl = document.getElementById('stock-' + itemId);
+                const stock = stockEl ? (parseInt(stockEl.innerText,10) || 0) : 0;
+                if(qty > stock){
+                    resultEl.innerText = `No se puede enviar el pedido: stock insuficiente para ${itemId} (disponible ${stock})`;
+                    return;
+                }
+                items.push({item_id: itemId, cantidad: qty});
+            }
+        }
+        if(items.length === 0){
+            resultEl.innerText = 'Selecciona al menos un item.';
+            return;
+        }
+        const payload = {restaurante_id: "{{ restaurante.get('id') }}", cliente_email: "{{ session.get('user_email') or '' }}", direccion, items};
+
+        try{
+            const resp = await fetch('/api/pedidos', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin',
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json().catch(()=>null);
+            if(resp.ok){
+                // show confirmation inline
+                const orderId = (data && (data.id || data.pedido_id || data.order_id)) || '';
+                const estado = (data && data.estado) || (data && data.status) || '';
+                resultEl.innerHTML = `<strong>Pedido creado</strong> ID: ${orderId} - Estado: ${estado} <p><a href=\"/order/${orderId}\">Ver detalle</a></p>`;
+
+                // update displayed stock immediately (optimistic update)
+                items.forEach(it => {
+                    const stockEl = document.getElementById('stock-' + it.item_id);
+                    if(stockEl){
+                        const cur = parseInt(stockEl.innerText,10) || 0;
+                        stockEl.innerText = Math.max(0, cur - it.cantidad);
+                    }
+                });
+                // render preview empty and disable submit
+                form.querySelectorAll('input[name^="item_"]').forEach(i=> i.value = 0);
+                form.querySelector('button[type="submit"]').disabled = true;
+                const previewItems = document.getElementById('preview-items');
+                const previewTotal = document.getElementById('preview-total');
+                if(previewItems) previewItems.innerHTML = '';
+                if(previewTotal) previewTotal.innerText = '0.00';
+
+                // Start polling the order status and show live updates in the same result element
+                (function pollOrderStatus(id, targetEl){
+                    let attempts = 0;
+                    const maxAttempts = 60; // stop after ~2 minutes
+                    async function tick(){
+                        attempts += 1;
+                        try{
+                            const r = await fetch(`/api/order/${id}`, {credentials: 'same-origin'});
+                            if(!r.ok){
+                                // show remote error but keep retrying for transient issues
+                                const txt = await r.text().catch(()=>r.statusText);
+                                targetEl.innerHTML = `<strong>Pedido</strong> ID: ${id} - Error consultando estado: ${r.status} ${txt}`;
+                            } else {
+                                const payload = await r.json().catch(()=>null);
+                                const est = payload && (payload.estado || payload.status) ? (payload.estado || payload.status) : '';
+                                const rep = payload && payload.repartidor ? payload.repartidor : null;
+                                let html = `<strong>Pedido</strong> ID: ${id} - Estado: ${est}`;
+                                if(rep){
+                                    html += `<p>Repartidor: ${rep.nombre || rep.name || ''} ${rep.telefono?(' - ' + rep.telefono):''}</p>`;
+                                }
+                                html += `<p><a href=\"/order/${id}\">Ver detalle</a></p>`;
+                                targetEl.innerHTML = html;
+
+                                // stop polling on assigned or completed
+                                if(est === 'asignado' || est === 'completado' || est === 'entregado'){
+                                    return;
+                                }
+                            }
+                        }catch(err){
+                            // transient network issue: show and retry
+                            targetEl.innerHTML = `<strong>Pedido</strong> ID: ${id} - Error consultando estado: ${String(err)} (reintentando...)`;
+                        }
+                        if(attempts < maxAttempts){
+                            setTimeout(tick, 2000);
+                        } else {
+                            targetEl.innerHTML += `<p class="muted">No se obtuvo actualización tras varios intentos. Refresca la página o consulta el detalle del pedido.</p>`;
+                        }
+                    }
+                    // small delay before first poll to allow backend to assign
+                    setTimeout(tick, 800);
+                })(orderId, resultEl);
+
+            } else {
+                const detail = data && (data.detail || data.message) ? (data.detail || data.message) : resp.statusText;
+                resultEl.innerText = `Error creando pedido: ${detail}`;
+            }
+        }catch(err){
+            resultEl.innerText = 'Error enviando pedido: ' + String(err);
+        }
+    });
+})();
+
+// initial render (in case template pre-populates values)
+// (previous script already called renderPreview)
+
+})();
+</script>
+
+<form method="post" id="order-form">
     <h3>Menú</h3>
     {% if menu %}
         <table class="menu-table">
@@ -57,7 +274,7 @@
                     <td>{{ item_nombre }}</td>
                     <td>{{ item_precio }}</td>
                     <td>
-                        <input type="number" name="item_{{ item_id }}" min="0" value="0">
+                        <input type="number" name="item_{{ item_id }}" min="0" value="0" max="{{ it.get('cantidad') if it is mapping else '' }}" data-item-id="{{ item_id }}">
                         <div class="stock">Disponible: <span id="stock-{{ item_id }}">{{ it.get('cantidad') if it is mapping else '' }}</span></div>
                     </td>
                 </tr>
@@ -73,6 +290,15 @@
 
     <button type="submit">Realizar pedido</button>
 </form>
+
+<section id="order-preview" class="order-preview" style="display:none;">
+    <h3>Vista previa del pedido</h3>
+    <ul id="preview-items"></ul>
+    <p>Total: <strong id="preview-total">0.00</strong></p>
+    <p id="preview-note" class="muted">Revisa las cantidades y tu dirección antes de confirmar.</p>
+</section>
+
+<div id="order-result" style="display:none; margin-top:1em;" class="order-result"></div>
 
 {% endblock %}
 

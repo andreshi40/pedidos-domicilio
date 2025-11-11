@@ -94,6 +94,31 @@ def create_pedido(payload: OrderCreate):
     """Crear un pedido: reserva items en restaurantes, persiste el pedido en DB y asigna repartidor."""
     order_id = str(uuid.uuid4())
     reserved = []
+    # Pre-check stock by fetching the restaurant menu once. If any requested
+    # item has cantidad == 0 (sin stock) or cantidad < requested cantidad,
+    # reject the order early with 400 to avoid partial reservations.
+    try:
+        menu_url = f"{RESTAURANTES_URL_BASE}/api/v1/restaurantes/{payload.restaurante_id}/menu"
+        mresp = requests.get(menu_url, timeout=2)
+        if mresp.status_code == 200:
+            menu = mresp.json().get("menu", []) if isinstance(mresp.json(), dict) else []
+            stock_map = {it.get('id'): it.get('cantidad', 0) for it in menu}
+            for it in payload.items:
+                avail = stock_map.get(it.item_id)
+                if avail is None:
+                    # item not present in menu
+                    raise HTTPException(status_code=400, detail=f"Item {it.item_id} no encontrado en el restaurante")
+                if avail <= 0:
+                    raise HTTPException(status_code=400, detail=f"Item {it.item_id} sin stock")
+                if avail < it.cantidad:
+                    raise HTTPException(status_code=400, detail=f"Stock insuficiente para item {it.item_id}")
+    except HTTPException:
+        # re-raise validation errors
+        raise
+    except Exception:
+        # if we can't reach restaurantes or parsing fails, fall back to
+        # attempting reservation as before (reserve calls will enforce stock)
+        pass
     # Reserve items in restaurantes service
     for it in payload.items:
         url = f"{RESTAURANTES_URL_BASE}/api/v1/restaurantes/{payload.restaurante_id}/menu/{it.item_id}/reserve?cantidad={it.cantidad}"
@@ -140,6 +165,7 @@ def create_pedido(payload: OrderCreate):
     rep = _assign_repartidor()
     repartidor_out = None
     estado = 'creado'
+    repartidor_snapshot = None
     if rep:
         try:
             assign_url = f"{REPARTIDORES_URL_BASE}/{rep.id}/assign"
@@ -147,15 +173,25 @@ def create_pedido(payload: OrderCreate):
             if r.status_code == 200:
                 repartidor_out = r.json()
                 estado = 'asignado'
+                # snapshot the repartidor info to store in DB
+                repartidor_snapshot = {
+                    'id': repartidor_out.get('id'),
+                    'nombre': repartidor_out.get('nombre'),
+                    'telefono': repartidor_out.get('telefono')
+                }
         except Exception:
             pass
 
-    # update order estado and optionally repartidor info (store estado in DB)
+    # update order estado and persist repartidor snapshot in DB
     db = SessionLocal()
     try:
         o = db.query(OrderORM).filter(OrderORM.id == order_id).first()
         if o:
             o.estado = estado
+            if repartidor_snapshot:
+                o.repartidor_id = repartidor_snapshot.get('id')
+                o.repartidor_nombre = repartidor_snapshot.get('nombre')
+                o.repartidor_telefono = repartidor_snapshot.get('telefono')
             db.add(o)
             db.commit()
     finally:
@@ -182,7 +218,14 @@ def get_pedido(order_id: str):
         items = []
         for it in o.items:
             items.append({"item_id": it.item_id, "nombre": it.nombre, "precio": float(it.precio), "cantidad": it.cantidad})
-        return {"id": o.id, "restaurante_id": o.restaurante_id, "cliente_email": o.cliente_email, "direccion": o.direccion, "items": items, "estado": o.estado, "repartidor": None}
+        repartidor = None
+        if getattr(o, 'repartidor_id', None) or getattr(o, 'repartidor_nombre', None):
+            repartidor = {
+                'id': getattr(o, 'repartidor_id', None),
+                'nombre': getattr(o, 'repartidor_nombre', None),
+                'telefono': getattr(o, 'repartidor_telefono', None)
+            }
+        return {"id": o.id, "restaurante_id": o.restaurante_id, "cliente_email": o.cliente_email, "direccion": o.direccion, "items": items, "estado": o.estado, "repartidor": repartidor}
     finally:
         db.close()
 

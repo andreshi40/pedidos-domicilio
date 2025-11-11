@@ -4,9 +4,14 @@ from jose import JWTError, jwt
 import os
 from fastapi.middleware.cors import CORSMiddleware
 import requests
+import logging
 
 # Define la instancia de la aplicación FastAPI.
 app = FastAPI(title="API Gateway Taller Microservicios")
+
+# configure basic logging to stdout so container logs show our debug prints
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("api-gateway")
 
 # Configura CORS (Cross-Origin Resource Sharing).
 # Esto es esencial para permitir que el frontend se comunique con el gateway.
@@ -85,7 +90,14 @@ def _verify_token_from_request(request: Request):
 async def forward_get(service_name: str, path: str, request: Request):
     if service_name not in SERVICES:
         raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found.")
-    service_url = f"{SERVICES[service_name]}/{path}"
+    # Build target URL including the service's own API prefix so that
+    # gateway /api/v1/restaurantes/... maps to restaurantes-service:/api/v1/restaurantes/...
+    base = SERVICES[service_name].rstrip('/')
+    svc_prefix = f"/api/v1/{service_name}"
+    if path:
+        service_url = f"{base}{svc_prefix}/{path}"
+    else:
+        service_url = f"{base}{svc_prefix}"
 
     # Validate token unless endpoint is exempt (e.g. auth/login, auth/register, auth/health)
     headers = {k: v for k, v in request.headers.items()}
@@ -99,11 +111,15 @@ async def forward_get(service_name: str, path: str, request: Request):
             headers["X-User-Role"] = str(user.get("role"))
 
     try:
+        # print instead of logger to ensure messages appear in container stdout
+        print(f"[GATEWAY] Forwarding GET to {service_url} query={dict(request.query_params)} headers={list(headers.keys())}")
         response = requests.get(service_url, params=request.query_params, headers=headers)
         # Forward the downstream status code and body transparently.
         try:
+            print(f"[GATEWAY] Downstream {service_name} responded {response.status_code}")
             return JSONResponse(status_code=response.status_code, content=response.json())
         except ValueError:
+            print(f"[GATEWAY] Downstream returned non-json body: {response.text[:200]}")
             return JSONResponse(status_code=response.status_code, content={"detail": response.text})
     except requests.exceptions.RequestException as e:
         # Network/connection errors should still map to 500 from the gateway.
@@ -114,7 +130,14 @@ async def forward_get(service_name: str, path: str, request: Request):
 async def forward_post(service_name: str, path: str, request: Request):
     if service_name not in SERVICES:
         raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found.")
-    service_url = f"{SERVICES[service_name]}/{path}"
+    # Build target URL including the service's own API prefix so that
+    # gateway /api/v1/restaurantes/... maps to restaurantes-service:/api/v1/restaurantes/...
+    base = SERVICES[service_name].rstrip('/')
+    svc_prefix = f"/api/v1/{service_name}"
+    if path:
+        service_url = f"{base}{svc_prefix}/{path}"
+    else:
+        service_url = f"{base}{svc_prefix}"
 
     headers = {k: v for k, v in request.headers.items()}
     if not _is_auth_exempt(service_name, path):
@@ -132,11 +155,14 @@ async def forward_post(service_name: str, path: str, request: Request):
             body = await request.json()
         except Exception:
             body = None
+        print(f"[GATEWAY] Forwarding POST to {service_url} body_keys={list(body.keys()) if isinstance(body, dict) else 'raw'} headers={list(headers.keys())}")
         response = requests.post(service_url, json=body, headers=headers)
         # Forward downstream status and body transparently.
         try:
+            print(f"[GATEWAY] Downstream {service_name} responded {response.status_code}")
             return JSONResponse(status_code=response.status_code, content=response.json())
         except ValueError:
+            print(f"[GATEWAY] Downstream returned non-json body: {response.text[:200]}")
             return JSONResponse(status_code=response.status_code, content={"detail": response.text})
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Error forwarding request to {service_name}: {e}")

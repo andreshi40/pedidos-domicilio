@@ -12,6 +12,10 @@ class OrderORM(Base):
     cliente_email = Column(String, nullable=True)
     direccion = Column(String, nullable=False)
     estado = Column(String, nullable=False)
+    # store assigned repartidor info snapshot for easier queries and UI
+    repartidor_id = Column(String, nullable=True)
+    repartidor_nombre = Column(String, nullable=True)
+    repartidor_telefono = Column(String, nullable=True)
 
     items = relationship("OrderItemORM", back_populates="order", cascade="all, delete-orphan")
 

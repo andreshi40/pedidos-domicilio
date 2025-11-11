@@ -86,10 +86,15 @@ def get_menu(rest_id: str):
 
 @app.post("/api/v1/restaurantes/{rest_id}/menu/{item_id}/reserve")
 def reserve_menu_item(rest_id: str, item_id: str, cantidad: int = 1):
-    """Reserve (decrement) cantidad of a menu item if available."""
+    """Reserve (decrement) cantidad of a menu item if available.
+
+    This uses a SELECT FOR UPDATE (SQLAlchemy with_for_update) to avoid
+    race conditions when multiple concurrent reservations are attempted.
+    """
     db = database_sql.SessionLocal()
     try:
-        item = db.query(MenuItemORM).filter(MenuItemORM.id == item_id, MenuItemORM.restaurante_id == rest_id).first()
+        # lock the row for update to prevent overselling under concurrency
+        item = db.query(MenuItemORM).with_for_update().filter(MenuItemORM.id == item_id, MenuItemORM.restaurante_id == rest_id).first()
         if not item:
             raise HTTPException(status_code=404, detail="Item no encontrado")
         if item.cantidad < cantidad:

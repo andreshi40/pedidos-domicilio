@@ -4,8 +4,11 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import os
 import requests
 from typing import Optional
-
 from flask import flash
+import json
+import uuid
+import threading
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -15,6 +18,119 @@ API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://localhost:8000")
 
 # Secret key for session (only for dev). In production set a strong secret via env.
 app.secret_key = os.getenv("FLASK_SECRET", "dev-secret-change-me")
+
+
+# --- Local mock store fallback (used when API Gateway and other services are down) ---
+class MockStore:
+    def __init__(self, path=None):
+        base = os.path.dirname(__file__)
+        self.path = path or os.path.join(base, 'mock_data.json')
+        self.lock = threading.Lock()
+        self._load_or_init()
+
+    def _load_or_init(self):
+        if os.path.exists(self.path):
+            try:
+                with open(self.path, 'r') as f:
+                    self.data = json.load(f)
+            except Exception:
+                self.data = self._default()
+                self._save()
+        else:
+            self.data = self._default()
+            self._save()
+
+    def _default(self):
+        # minimal seed matching the services' expected shapes
+        return {
+            "restaurantes": [
+                {"id": "rest1", "nombre": "La Pizzeria", "direccion": "Calle 1", "descripcion": "Pizza tradicional"},
+                {"id": "rest2", "nombre": "Sushi Bar", "direccion": "Calle 2", "descripcion": "Sushi fresco"}
+            ],
+            "menus": {
+                "rest1": [
+                    {"id": "p1", "nombre": "Margarita", "precio": 7.5, "cantidad": 10},
+                    {"id": "p2", "nombre": "Cuatro Quesos", "precio": 9.0, "cantidad": 8}
+                ],
+                "rest2": [
+                    {"id": "s1", "nombre": "Sushi Mix", "precio": 12.0, "cantidad": 6}
+                ]
+            },
+            "repartidores": [
+                {"id": "r_local_1", "nombre": "Local Repartidor", "telefono": "3000000001", "estado": "disponible"}
+            ],
+            "orders": {}
+        }
+
+    def _save(self):
+        tmp = self.path + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(self.data, f, default=str)
+        os.replace(tmp, self.path)
+
+    # Restaurants
+    def list_restaurantes(self):
+        return list(self.data.get('restaurantes', []))
+
+    def get_restaurante(self, rest_id):
+        for r in self.data.get('restaurantes', []):
+            if r.get('id') == rest_id:
+                return r
+        return None
+
+    def get_menu(self, rest_id):
+        return self.data.get('menus', {}).get(rest_id, [])
+
+    # Orders
+    def create_order(self, payload):
+        with self.lock:
+            order_id = str(uuid.uuid4())
+            items_out = []
+            # check stock and decrement
+            menu = self.data.setdefault('menus', {}).get(payload.get('restaurante_id'), [])
+            menu_by_id = {m['id']: m for m in menu}
+            for it in payload.get('items', []):
+                mi = menu_by_id.get(it.get('item_id'))
+                if not mi or mi.get('cantidad', 0) < it.get('cantidad', 0):
+                    raise ValueError(f"Sin stock para item {it.get('item_id')}")
+            for it in payload.get('items', []):
+                mi = menu_by_id.get(it.get('item_id'))
+                mi['cantidad'] = mi.get('cantidad', 0) - it.get('cantidad')
+                items_out.append({"item_id": mi['id'], "nombre": mi.get('nombre'), "precio": mi.get('precio'), "cantidad": it.get('cantidad')})
+
+            # assign repartidor if available
+            rep = None
+            for r in self.data.get('repartidores', []):
+                if r.get('estado') == 'disponible':
+                    rep = r
+                    r['estado'] = 'ocupado'
+                    break
+
+            estado = 'asignado' if rep else 'creado'
+            rep_out = None
+            if rep:
+                rep_out = {"id": rep['id'], "nombre": rep['nombre'], "telefono": rep.get('telefono')}
+
+            order = {
+                "id": order_id,
+                "restaurante_id": payload.get('restaurante_id'),
+                "cliente_email": payload.get('cliente_email'),
+                "direccion": payload.get('direccion'),
+                "items": items_out,
+                "estado": estado,
+                "repartidor": rep_out,
+                "created_at": datetime.utcnow().isoformat()
+            }
+            self.data.setdefault('orders', {})[order_id] = order
+            self._save()
+            return order
+
+    def get_order(self, order_id):
+        return self.data.get('orders', {}).get(order_id)
+
+
+# instantiate single mock store
+mock_store = MockStore()
 
 @app.route("/")
 def index():
@@ -471,9 +587,22 @@ def api_order_status(order_id):
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         resp = requests.get(f"{API_GATEWAY_URL}/api/v1/pedidos/{order_id}", headers=headers, timeout=5)
+        if resp.status_code == 200:
+            return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
+        # fallback to direct pedidos service when gateway returns 404 or method routing issues
+        if resp.status_code == 404 or resp.status_code == 405:
+            try:
+                direct = requests.get(f"http://pedidos-service:8003/api/v1/pedidos/{order_id}", headers=headers, timeout=4)
+                return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','application/json')})
+            except requests.exceptions.RequestException:
+                return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
         return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
     except requests.exceptions.RequestException as e:
-        return ({"detail": str(e)}, 500)
+        # fallback to local mock store if available
+        o = mock_store.get_order(order_id)
+        if o:
+            return (json.dumps(o), 200, {'Content-Type': 'application/json'})
+        return ({"detail": "cannot reach gateway and no local mock order"}, 500)
 
 
 @app.route('/api/restaurantes/<rest_id>/menu')
@@ -499,7 +628,90 @@ def api_rest_menu(rest_id):
             direct = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/menu", timeout=4)
             return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','application/json')})
         except requests.exceptions.RequestException as e:
-            return ({"detail": str(e)}, 500)
+            # fallback: return mock menu if present
+            menu = mock_store.get_menu(rest_id)
+            return (json.dumps({"menu": menu}), 200, {'Content-Type': 'application/json'})
+
+
+@app.route('/api/pedidos', methods=['POST'])
+def api_create_pedido():
+    """Proxy para crear un pedido desde el frontend mediante AJAX.
+    Reenvía la petición al API Gateway y si falla intenta el servicio directo de pedidos.
+    Guarda session['last_order_id'] con el id devuelto cuando la creación es exitosa.
+    """
+    payload = None
+    try:
+        payload = request.get_json()
+    except Exception:
+        return ({"detail": "invalid json"}, 400)
+
+    token = session.get('access_token')
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    # Intentar API Gateway primero
+    try:
+        resp = requests.post(f"{API_GATEWAY_URL}/api/v1/pedidos", json=payload, headers=headers, timeout=5)
+        if resp.status_code in (200, 201):
+            # store last order id in session if possible
+            try:
+                order = resp.json()
+                order_id = order.get('id') or order.get('pedido_id') or order.get('order_id')
+                if order_id:
+                    session['last_order_id'] = order_id
+            except Exception:
+                pass
+            return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
+        else:
+            # si gateway devolvió 405 (método no permitido) o devolvió 404/401 y no tenemos token en sesión,
+            # intentar enviar directamente al servicio de pedidos (fallback útil en desarrollo)
+            if resp.status_code == 405 or (resp.status_code in (404, 401) and not token):
+                try:
+                    direct = requests.post("http://pedidos-service:8003/api/v1/pedidos", json=payload, headers=headers, timeout=5)
+                    if direct.status_code in (200,201):
+                        try:
+                            order = direct.json()
+                            order_id = order.get('id') or order.get('pedido_id') or order.get('order_id')
+                            if order_id:
+                                session['last_order_id'] = order_id
+                        except Exception:
+                            pass
+                        return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','application/json')})
+                    else:
+                        return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','application/json')})
+                except requests.exceptions.RequestException:
+                    return ({"detail": "no connection to pedidos service"}, 502)
+            # otherwise forward error
+            return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','application/json')})
+    except requests.exceptions.RequestException:
+        # intento directo si el gateway no responde
+        try:
+            direct = requests.post("http://pedidos-service:8003/api/v1/pedidos", json=payload, headers=headers, timeout=5)
+            if direct.status_code in (200,201):
+                try:
+                    order = direct.json()
+                    order_id = order.get('id') or order.get('pedido_id') or order.get('order_id')
+                    if order_id:
+                        session['last_order_id'] = order_id
+                except Exception:
+                    pass
+            return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','application/json')})
+        except requests.exceptions.RequestException as e:
+            # fallback: create order locally using mock store
+            try:
+                order = mock_store.create_order(payload)
+                order_id = order.get('id')
+                if order_id:
+                    try:
+                        session['last_order_id'] = order_id
+                    except Exception:
+                        pass
+                return (json.dumps(order), 200, {'Content-Type': 'application/json'})
+            except ValueError as ve:
+                return ({"detail": str(ve)}, 400)
+            except Exception as _:
+                return ({"detail": "unable to create order (gateway and local mock failed)"}, 500)
 
 
 @app.route('/_debug/set_last/<order_id>', methods=['GET'])
