@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -101,9 +103,13 @@ def get_repartidor(rep_id: str):
 
 @app.post("/api/v1/repartidores/{rep_id}/assign")
 def assign_repartidor(rep_id: str):
-    db = SessionLocal()
+    # Use a DB transaction to avoid races when multiple callers try to
+    # assign the same repartidor concurrently.
+    db: Session = SessionLocal()
     try:
-        r = db.query(RepartidorORM).filter(RepartidorORM.id == rep_id).first()
+        # lock the row for update
+        q = db.query(RepartidorORM).filter(RepartidorORM.id == rep_id).with_for_update()
+        r = q.first()
         if not r:
             raise HTTPException(status_code=404, detail="Repartidor no encontrado")
         if r.estado == 'ocupado':
@@ -124,6 +130,30 @@ def free_repartidor(rep_id: str):
         if not r:
             raise HTTPException(status_code=404, detail="Repartidor no encontrado")
         r.estado = 'disponible'
+        db.add(r)
+        db.commit()
+        return r.to_dict()
+    finally:
+        db.close()
+
+
+@app.post("/api/v1/repartidores/assign-next")
+def assign_next_repartidor():
+    """Atomically pick and assign the next available repartidor.
+
+    This endpoint performs a SELECT FOR UPDATE SKIP LOCKED to avoid race
+    conditions when multiple callers attempt to get an available repartidor.
+    Returns 200 with the assigned repartidor, or 204 if none available.
+    """
+    db: Session = SessionLocal()
+    try:
+        # Use a SELECT ... FOR UPDATE SKIP LOCKED to avoid races. SQLAlchemy
+        # exposes this via with_for_update(skip_locked=True).
+        q = db.query(RepartidorORM).filter(RepartidorORM.estado == 'disponible').with_for_update(skip_locked=True)
+        r = q.first()
+        if not r:
+            return JSONResponse(status_code=204, content={})
+        r.estado = 'ocupado'
         db.add(r)
         db.commit()
         return r.to_dict()
