@@ -74,16 +74,19 @@ def health_check():
 
 
 def _assign_repartidor() -> Optional[Repartidor]:
-    """Call repartidores service and try to pick an available repartidor (simple round-robin by the remote service)."""
+    """Call repartidores service atomically to assign the next available repartidor.
+
+    Uses the new endpoint POST /assign-next which will return 200 and the assigned
+    repartidor JSON, or 204 if none available. This reduces races compared to the
+    previous GET-then-assign pattern.
+    """
     try:
-        resp = requests.get(REPARTIDORES_URL_BASE, timeout=2)
+        assign_url = f"{REPARTIDORES_URL_BASE}/assign-next"
+        resp = requests.post(assign_url, timeout=3)
         if resp.status_code == 200:
-            data = resp.json()
-            pool = data.get('repartidores') if isinstance(data, dict) else (data if isinstance(data, list) else [])
-            # pick first available
-            for p in pool:
-                if not p.get('estado') or p.get('estado') == 'disponible':
-                    return Repartidor(**p)
+            return Repartidor(**resp.json())
+        if resp.status_code == 204:
+            return None
     except Exception:
         pass
     return None
