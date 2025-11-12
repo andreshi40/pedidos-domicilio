@@ -163,6 +163,32 @@ def create_pedido(payload: OrderCreate):
             db.add(oi)
             items_out.append({"item_id": oi.item_id, "nombre": oi.nombre, "precio": float(oi.precio), "cantidad": oi.cantidad})
         db.commit()
+
+        # Try to assign a repartidor immediately; persist snapshot if assigned.
+        try:
+            rep = _assign_repartidor()
+            if rep:
+                # reload session and update order with repartidor snapshot
+                o = db.query(OrderORM).filter(OrderORM.id == order_id).first()
+                if o:
+                    o.repartidor_id = rep.id
+                    o.repartidor_nombre = rep.nombre
+                    o.repartidor_telefono = rep.telefono
+                    o.estado = 'asignado'
+                    db.add(o)
+                    db.commit()
+        except Exception:
+            # best-effort: if assignment fails, keep order in 'creado' and let background assigner retry
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        # Build response payload
+        repartidor_out = None
+        o = db.query(OrderORM).filter(OrderORM.id == order_id).first()
+        if o and getattr(o, 'repartidor_id', None):
+            repartidor_out = {"id": o.repartidor_id, "nombre": o.repartidor_nombre, "telefono": o.repartidor_telefono}
+        return {"id": order_id, "restaurante_id": payload.restaurante_id, "cliente_email": payload.cliente_email, "direccion": payload.direccion, "items": items_out, "estado": o.estado if o else 'creado', "repartidor": repartidor_out}
     finally:
         db.close()
 
@@ -177,13 +203,17 @@ def _background_assigner_loop():
             db = SessionLocal()
             try:
                 pending = db.query(OrderORM).filter(OrderORM.estado == 'creado').all()
+                if pending:
+                    print(f"[PEDIDOS][ASSIGNER] found {len(pending)} pending orders", flush=True)
                 for o in pending:
                     # skip if already has repartidor snapshot
                     if getattr(o, 'repartidor_id', None):
                         continue
                     try:
                         assign_url = f"{REPARTIDORES_URL_BASE}/assign-next"
+                        print(f"[PEDIDOS][ASSIGNER] trying assign-next for order {o.id}", flush=True)
                         r = requests.post(assign_url, timeout=3)
+                        print(f"[PEDIDOS][ASSIGNER] assign-next responded {getattr(r, 'status_code', 'ERR')}", flush=True)
                         if r.status_code == 200:
                             rep = r.json()
                             o.repartidor_id = rep.get('id')
@@ -192,9 +222,17 @@ def _background_assigner_loop():
                             o.estado = 'asignado'
                             db.add(o)
                             db.commit()
-                    except Exception:
-                        # ignore and continue with next order
-                        db.rollback()
+                            print(f"[PEDIDOS][ASSIGNER] order {o.id} assigned to {rep.get('id')}", flush=True)
+                        else:
+                            # no repartidor available (204) or other status
+                            pass
+                    except Exception as ex:
+                        # ignore and continue with next order but log the exception
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+                        print(f"[PEDIDOS][ASSIGNER] exception while assigning order {getattr(o, 'id', '?')}: {ex}", flush=True)
                         continue
             finally:
                 db.close()
@@ -206,54 +244,23 @@ def _background_assigner_loop():
 
 @app.on_event("startup")
 def start_background_assigner():
-    t = threading.Thread(target=_background_assigner_loop, daemon=True, name="assigner-thread")
-    t.start()
-
-    # assign repartidor
-    rep = _assign_repartidor()
-    repartidor_out = None
-    estado = 'creado'
-    repartidor_snapshot = None
-    if rep:
+    # Start the background assigner in a safe wrapper so that any unexpected
+    # exception inside the thread won't propagate and crash the FastAPI process
+    # during startup. We also protect the thread creation itself.
+    def _safe_runner():
         try:
-            assign_url = f"{REPARTIDORES_URL_BASE}/{rep.id}/assign"
-            r = requests.post(assign_url, timeout=2)
-            if r.status_code == 200:
-                repartidor_out = r.json()
-                estado = 'asignado'
-                # snapshot the repartidor info to store in DB
-                repartidor_snapshot = {
-                    'id': repartidor_out.get('id'),
-                    'nombre': repartidor_out.get('nombre'),
-                    'telefono': repartidor_out.get('telefono')
-                }
-        except Exception:
-            pass
+            _background_assigner_loop()
+        except Exception as e:
+            # Log the exception and keep the thread from raising further
+            print(f"[PEDIDOS] background assigner crashed: {e}", flush=True)
 
-    # update order estado and persist repartidor snapshot in DB
-    db = SessionLocal()
     try:
-        o = db.query(OrderORM).filter(OrderORM.id == order_id).first()
-        if o:
-            o.estado = estado
-            if repartidor_snapshot:
-                o.repartidor_id = repartidor_snapshot.get('id')
-                o.repartidor_nombre = repartidor_snapshot.get('nombre')
-                o.repartidor_telefono = repartidor_snapshot.get('telefono')
-            db.add(o)
-            db.commit()
-    finally:
-        db.close()
-
-    return {
-        "id": order_id,
-        "restaurante_id": payload.restaurante_id,
-        "cliente_email": payload.cliente_email,
-        "direccion": payload.direccion,
-        "items": items_out,
-        "estado": estado,
-        "repartidor": repartidor_out,
-    }
+        t = threading.Thread(target=_safe_runner, daemon=True, name="assigner-thread")
+        t.start()
+        print("[PEDIDOS] background assigner started", flush=True)
+    except Exception as e:
+        # Don't let a thread-start failure kill the whole app at startup
+        print(f"[PEDIDOS] failed to start background assigner: {e}", flush=True)
 
 
 @app.get("/api/v1/pedidos/{order_id}", response_model=OrderOut)
