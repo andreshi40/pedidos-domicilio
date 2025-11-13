@@ -109,6 +109,12 @@ main {
     margin: 1.25rem auto;
 }
 
+/* Hero on index: logo + slogan */
+.hero{ display:flex; align-items:center; gap:1rem; background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); padding:1rem; border-radius:10px; }
+.hero-logo{ height:64px; width:auto; display:inline-block; }
+.hero-text h2{ margin:0; font-size:1.6rem; color:var(--brand-primary-dark); }
+.hero-text p{ margin:0.25rem 0; color:var(--text); }
+
 footer {
     text-align: center;
     padding: 1rem 0;
@@ -195,7 +201,7 @@ a {
     color: var(--brand-primary);
 }
 
-.site-logo{ height:40px; width:40px; display:inline-block; vertical-align:middle; }
+.site-logo{ height:32px; width:auto; display:inline-block; vertical-align:middle; }
 
 .header-left{ display:flex; align-items:center; gap:0.5rem }
 
@@ -234,3 +240,22 @@ a {
     background: white;
 }
 .order-link:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.07); }
+
+/* Styles for the Create User dropdown in the header */
+.user-create-menu {
+    /* opaque dark dropdown to match header and ensure high contrast */
+    background: #2b2b2b !important;
+    border-radius: 6px;
+    padding: 0.25rem 0 !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+.user-create-menu .dropdown-item {
+    color: #fff !important; /* match header links */
+    display: block;
+    padding: 0.5rem 0.75rem;
+    text-decoration: none;
+}
+.user-create-menu .dropdown-item:hover {
+    background: rgba(255,255,255,0.06) !important;
+    color: #fff !important;
+}

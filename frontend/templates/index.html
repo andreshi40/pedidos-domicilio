@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h2>bienvenido a deliapp</h2>
-    <p>Bienvenido a <strong>deliapp</strong> — tu plataforma de pedidos y entregas para restaurantes. Usa el API Gateway para conectar con los microservicios y probar las funcionalidades.</p>
-
-    <a href="{{ url_for('new_user') }}">Crear un nuevo usuario</a>
+    <div class="hero">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="deliapp" class="hero-logo">
+        <div class="hero-text">
+            <h2>Sabor a tu puerta</h2>
+            <p>Bienvenido a <strong>deliapp</strong> — tu plataforma de pedidos y entregas para restaurantes. Usa el API Gateway para conectar con los microservicios y probar las funcionalidades.</p>
+            <p><a href="{{ url_for('new_user') }}">Crear un nuevo usuario</a></p>
+        </div>
+    </div>
 
 {% endblock %}

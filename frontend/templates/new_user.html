@@ -10,11 +10,11 @@
         <input type="password" id="password" name="password" required>
         <div id="pwd-message" style="color: #a94442; margin-top: 0.25rem; display:none;">La contraseña debe tener al menos 8 caracteres.</div>
         <br>
-        <label for="role">Rol:</label>
-        <select id="role" name="role">
-            <option value="cliente" selected>cliente</option>
-            <option value="admin">admin</option>
-        </select>
+        {# Role is set via the menu dropdown when opening the registration page. We don't show
+           a selector here to avoid allowing the user to change role; keep a hidden input so
+           the backend receives the role value. Default to 'cliente' when role_default is not provided. #}
+        <input type="hidden" id="role" name="role" value="{{ role_default or 'cliente' }}">
+        <p>Rol: <strong>{{ (role_default or 'cliente') }}</strong></p>
         <br>
         <button type="submit">Crear usuario</button>
     </form>

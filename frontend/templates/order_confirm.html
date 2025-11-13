@@ -13,14 +13,9 @@
     {% endfor %}
     </ul>
 
-    {% if pedido.get('repartidor') %}
-        <h3>Repartidor asignado</h3>
-        <p>Nombre: {{ pedido.repartidor.get('nombre') }}</p>
-        <p>Teléfono: {{ pedido.repartidor.get('telefono') }}</p>
-    {% endif %}
-
     <div id="dynamic-repartidor">
         <!-- Aquí se mostrará la info del repartidor cuando sea asignado -->
+        <p>Aún no se ha asignado repartidor.</p>
     </div>
 
     <script>
@@ -41,6 +36,8 @@
                 const rep = data.repartidor;
                 if(rep){
                     repContainer.innerHTML = `\n                        <h3>Repartidor asignado</h3>\n                        <p id="rep-nombre">Nombre: ${rep.nombre || rep.name || ''}</p>\n                        <p id="rep-tel">Teléfono: ${rep.telefono || ''}</p>\n                    `;
+                    // Run dedupe guard in case another block with the same repartidor info exists
+                    try{ dedupeRepartidorBlocks(); }catch(_e){}
                 } else {
                     repContainer.innerHTML = '<p>Aún no se ha asignado repartidor.</p>';
                 }
@@ -57,6 +54,24 @@
         // arrancar polling una vez cargada la página
         setTimeout(fetchStatus, 500);
     })();
+
+    // Small helper to remove duplicated repartidor blocks that might appear from server + client
+    function dedupeRepartidorBlocks(){
+        try{
+            const headers = Array.from(document.querySelectorAll('h3,h4')).filter(h=>/repartidor/i.test(h.innerText));
+            if(headers.length <= 1) return;
+            const seen = new Set();
+            headers.forEach(h => {
+                const block = h.closest('div,section') || h.parentElement;
+                const text = block ? block.innerText.replace(/\s+/g,' ').trim() : h.innerText.trim();
+                if(seen.has(text)){
+                    if(block && block.parentElement) block.parentElement.removeChild(block);
+                } else {
+                    seen.add(text);
+                }
+            });
+        }catch(e){ /* best-effort, ignore */ }
+    }
     </script>
 
 {% else %}

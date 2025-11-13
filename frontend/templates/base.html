@@ -9,8 +9,8 @@
 <body>
     <header>
         <div class="header-top">
-            <div class="header-left">
-                <img src="{{ url_for('static', filename='logo.svg') }}" alt="Logo" class="site-logo">
+                <div class="header-left">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="site-logo">
                 <h1>{{ title }}</h1>
             </div>
             <button id="nav-toggle" class="nav-toggle" aria-label="Abrir menú">☰</button>
@@ -21,8 +21,17 @@
                                     {% if session.get('last_order_id') %}
                                         <a href="{{ url_for('order_status', order_id=session.get('last_order_id')) }}">Ver último pedido</a>
                                     {% endif %}
-                  <a href="{{ url_for('home') }}">Home</a>
-                  <a href="{{ url_for('new_user') }}">Crear usuario</a>
+                  <!-- Home (microservices health) removed -->
+                                    <div class="user-dropdown" style="position:relative; display:inline-block;">
+                                        <button id="user-create-btn" class="btn-link" type="button" aria-haspopup="true" aria-expanded="false" style="background:none;border:none;cursor:pointer;padding:0;color:inherit;">
+                                            Crear usuario ▾
+                                        </button>
+                                        <div id="user-create-menu" class="user-create-menu" style="display:none;position:absolute;right:0;margin-top:6px;z-index:1000;min-width:160px;">
+                                            <a class="dropdown-item" href="{{ url_for('new_user') }}?role=cliente">Cliente</a>
+                                            <a class="dropdown-item" href="{{ url_for('new_user') }}?role=restaurante">Restaurante</a>
+                                            <a class="dropdown-item" href="{{ url_for('new_user') }}?role=repartidor">Repartidor</a>
+                                        </div>
+                                    </div>
                 {% if session.access_token %}
                     <span class="nav-user">{{ session.user_email }}</span>
                     <a href="{{ url_for('logout') }}">Cerrar sesión</a>
@@ -59,6 +68,26 @@
                 nav.classList.remove('open');
             }
         });
+    })();
+
+    // Toggle user-create dropdown menu
+    (function(){
+        const btn = document.getElementById('user-create-btn');
+        const menu = document.getElementById('user-create-menu');
+        if(!btn || !menu) return;
+        btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            const open = menu.style.display !== 'none';
+            menu.style.display = open ? 'none' : 'block';
+            btn.setAttribute('aria-expanded', (!open).toString());
+        });
+        // close when clicking outside
+        document.addEventListener('click', function(){
+            if(menu.style.display !== 'none') menu.style.display = 'none';
+            if(btn) btn.setAttribute('aria-expanded', 'false');
+        });
+        // keep menu open when clicking inside
+        menu.addEventListener('click', function(e){ e.stopPropagation(); });
     })();
 </script>
 </html>

@@ -135,56 +135,22 @@ mock_store = MockStore()
 @app.route("/")
 def index():
     """Ruta de la página de inicio."""
-    
-    # TODO: Haz una llamada al API Gateway para obtener datos, si es necesario.
-    # Por ejemplo, para obtener la lista de items de un servicio:
-    # try:
-    #     response = requests.get(f"{API_GATEWAY_URL}/api/v1/[recurso]")
-    #     response.raise_for_status()  # Lanza un error para códigos de estado 4xx/5xx
-    #     items = response.json()
-    # except requests.exceptions.RequestException as e:
-    #     print(f"Error al conectar con el API Gateway: {e}")
-    #     items = []
+    # If user is logged in, make the restaurants search the post-login home.
+    token = session.get("access_token")
+    if token:
+        return redirect(url_for("client_index"))
 
-    # Pasa los datos a la plantilla para renderizarlos.
+    # Otherwise show the public landing page.
     return render_template("index.html", title="Inicio")
 
 
 @app.route("/home")
 def home():
-    """Página que muestra el estado rápido de los microservicios mediante el API Gateway."""
-    # Require login to view the home dashboard
+    # The microservices health dashboard was removed. Redirect to restaurants search.
     token = session.get("access_token")
     if not token:
-        flash("Inicia sesión para ver el estado de los microservicios.")
         return redirect(url_for("login"))
-    # Construye los endpoints de health usando la URL del API Gateway
-    services = [
-        {"name": "Autenticación", "key": "auth", "health": f"{API_GATEWAY_URL}/api/v1/auth/health"},
-        {"name": "Restaurantes", "key": "restaurantes", "health": f"{API_GATEWAY_URL}/api/v1/restaurantes/health"},
-        {"name": "Pedidos", "key": "pedidos", "health": f"{API_GATEWAY_URL}/api/v1/pedidos/health"},
-        {"name": "Repartidores", "key": "repartidores", "health": f"{API_GATEWAY_URL}/api/v1/repartidores/health"},
-    ]
-
-    # Consulta cada endpoint desde el servidor (evita CORS). Usa timeout corto.
-    for s in services:
-        try:
-            headers = {"Authorization": f"Bearer {token}"}
-            r = requests.get(s["health"], timeout=2, headers=headers)
-            if r.status_code == 200:
-                s["status"] = "up"
-                try:
-                    s["detail"] = r.json()
-                except Exception:
-                    s["detail"] = r.text
-            else:
-                s["status"] = "down"
-                s["detail"] = f"HTTP {r.status_code}"
-        except Exception as e:
-            s["status"] = "down"
-            s["detail"] = str(e)
-
-    return render_template("home.html", title="Home", services=services)
+    return redirect(url_for("client_index"))
 
 
 @app.route('/_services')
@@ -260,7 +226,8 @@ def login():
                         flash("No se pudo verificar la información del usuario.")
                         return render_template("login.html", title="Login")
                     flash("Login exitoso.")
-                    return redirect(url_for("home"))
+                    # Redirect user to the client restaurants search after login
+                    return redirect(url_for("client_index"))
             # else show error
             msg = resp.json().get("detail") if resp.headers.get('content-type','').startswith('application/json') else resp.text
             flash(f"Login falló: {msg}")
@@ -279,27 +246,89 @@ def logout():
     flash('Sesión cerrada.')
     return redirect(url_for('index'))
 
+
+@app.route('/restaurant/setup', methods=['GET', 'POST'])
+def restaurant_setup():
+    """Route that shows a simple restaurant onboarding form (name, address, phone, menu items).
+    On POST it will call the API Gateway (or direct service) to create the restaurant and its menu items.
+    """
+    token = session.get('access_token')
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        direccion = request.form.get('direccion')
+        telefono = request.form.get('telefono')
+        # collect menu items
+        nombres = request.form.getlist('item_nombre')
+        precios = request.form.getlist('item_precio')
+        cantidades = request.form.getlist('item_cantidad')
+
+        # create restaurant payload
+        rest_payload = {"nombre": nombre, "direccion": direccion}
+        try:
+            # try API gateway first
+            resp = requests.post(f"{API_GATEWAY_URL}/api/v1/restaurantes", json=rest_payload, headers=headers, timeout=5)
+            if resp.status_code not in (200,201):
+                # try direct service inside compose network
+                direct = requests.post(f"http://restaurantes-service:8002/api/v1/restaurantes", json=rest_payload, timeout=4)
+                if direct.status_code not in (200,201):
+                    flash('No se pudo crear el restaurante. Comprueba los logs del servicio.')
+                    return render_template('new_restaurant.html', title='Registrar restaurante')
+                resto = direct.json()
+            else:
+                resto = resp.json()
+
+            rest_id = resto.get('id')
+            # create menu items
+            for i, nombre_item in enumerate(nombres or []):
+                precio = precios[i] if i < len(precios) else 0
+                cantidad = cantidades[i] if i < len(cantidades) else 0
+                item_payload = {"nombre": nombre_item, "precio": float(precio or 0), "cantidad": int(cantidad or 0)}
+                try:
+                    r = requests.post(f"{API_GATEWAY_URL}/api/v1/restaurantes/{rest_id}/menu", json=item_payload, headers=headers, timeout=4)
+                    if r.status_code not in (200,201):
+                        # fallback
+                        requests.post(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/menu", json=item_payload, timeout=4)
+                except requests.exceptions.RequestException:
+                    try:
+                        requests.post(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/menu", json=item_payload, timeout=4)
+                    except Exception:
+                        pass
+
+            flash('Restaurante creado correctamente.')
+            return redirect(url_for('client_index'))
+        except requests.exceptions.RequestException:
+            flash('Error conectando al servicio de restaurantes.')
+            return render_template('new_restaurant.html', title='Registrar restaurante')
+
+    return render_template('new_restaurant.html', title='Registrar restaurante')
+
 @app.route("/new-user", methods=["GET", "POST"])
 def new_user():
     """Ruta para crear un nuevo usuario."""
+    # allow preselecting the role via querystring (?role=cliente|restaurante|repartidor)
+    role_default = request.args.get('role') if request.method == 'GET' else (request.form.get('role') or request.args.get('role'))
+
     if request.method == "POST":
         # Recoge los datos del formulario de registro
         email = request.form.get("email")
         password = request.form.get("password")
         role = request.form.get("role") or "cliente"
+
         # Do not allow creating admin users via the frontend
         if role == 'admin':
             flash('No está permitido crear usuarios con rol administrador desde esta interfaz.')
-            return render_template("new_user.html", title="Nuevo Usuario")
+            return render_template("new_user.html", title="Nuevo Usuario", role_default=role_default)
 
         if not email or not password:
             flash("Email y contraseña son requeridos para registrar un usuario.")
-            return render_template("new_user.html", title="Nuevo Usuario")
+            return render_template("new_user.html", title="Nuevo Usuario", role_default=role_default)
 
         # server-side password length check (defensive)
         if len(password) < 8:
             flash("La contraseña debe tener al menos 8 caracteres.")
-            return render_template("new_user.html", title="Nuevo Usuario")
+            return render_template("new_user.html", title="Nuevo Usuario", role_default=role_default)
 
         payload = {"email": email, "password": password, "role": role}
         try:
@@ -309,23 +338,27 @@ def new_user():
                 try:
                     login_resp = requests.post(f"{API_GATEWAY_URL}/api/v1/auth/login", json={"email": email, "password": password}, timeout=5)
                     if login_resp.status_code == 200:
-                            token = login_resp.json().get("access_token")
-                            if token:
-                                # verify role before setting session
-                                try:
-                                    me = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}, timeout=5)
-                                    if me.status_code == 200:
-                                        u = me.json()
-                                        if u.get('role') == 'admin':
-                                            flash('No está permitido iniciar sesión como admin desde esta interfaz.')
-                                            return redirect(url_for('login'))
-                                        session["access_token"] = token
-                                        session["user_email"] = u.get("email")
-                                        session["user_role"] = u.get("role")
-                                except requests.exceptions.RequestException:
-                                    pass
-                                flash("Registro correcto. Sesión iniciada.")
-                                return redirect(url_for("home"))
+                        token = login_resp.json().get("access_token")
+                        if token:
+                            # verify role before setting session
+                            try:
+                                me = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}, timeout=5)
+                                if me.status_code == 200:
+                                    u = me.json()
+                                    if u.get('role') == 'admin':
+                                        flash('No está permitido iniciar sesión como admin desde esta interfaz.')
+                                        return redirect(url_for('login'))
+                                    session["access_token"] = token
+                                    session["user_email"] = u.get("email")
+                                    session["user_role"] = u.get("role")
+                            except requests.exceptions.RequestException:
+                                pass
+                            flash("Registro correcto. Sesión iniciada.")
+                            # After successful registration + autologin, if user is a restaurante
+                            # redirect them to the restaurant setup page so they can register their menu.
+                            if role == 'restaurante' or session.get('user_role') == 'restaurante':
+                                return redirect(url_for('restaurant_setup'))
+                            return redirect(url_for("client_index"))
                 except requests.exceptions.RequestException:
                     # Si falla el autologin, redirigimos al login manual
                     pass
@@ -338,9 +371,9 @@ def new_user():
         except requests.exceptions.RequestException as e:
             flash(f"Error conectando al gateway: {e}")
 
-        return render_template("new_user.html", title="Nuevo Usuario")
+        return render_template("new_user.html", title="Nuevo Usuario", role_default=role_default)
 
-    return render_template("new_user.html", title="Nuevo Usuario")
+    return render_template("new_user.html", title="Nuevo Usuario", role_default=role_default)
 
 
 # Compatibility redirect: keep the old URL (/new-item) working by redirecting

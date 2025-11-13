@@ -212,11 +212,17 @@
                                 const est = payload && (payload.estado || payload.status) ? (payload.estado || payload.status) : '';
                                 const rep = payload && payload.repartidor ? payload.repartidor : null;
                                 let html = `<strong>Pedido</strong> ID: ${id} - Estado: ${est}`;
-                                if(rep){
+                                // If the page already contains an inline order status area (id="inline-repartidor"),
+                                // prefer that single place to show repartidor info and avoid duplicating it in the
+                                // generic result element used after submitting an order.
+                                const inlineRepEl = document.getElementById('inline-repartidor');
+                                if(rep && !inlineRepEl){
                                     html += `<p>Repartidor: ${rep.nombre || rep.name || ''} ${rep.telefono?(' - ' + rep.telefono):''}</p>`;
                                 }
                                 html += `<p><a href=\"/order/${id}\">Ver detalle</a></p>`;
                                 targetEl.innerHTML = html;
+                                // guard to remove duplicated repartidor blocks if present
+                                try{ dedupeRepartidorBlocks(); }catch(_e){}
 
                                 // stop polling on assigned or completed
                                 if(est === 'asignado' || est === 'completado' || est === 'entregado'){
@@ -315,13 +321,8 @@
             <span class="badge {{ estado }}">{{ (current_order.get('estado') or '').capitalize() }}</span>
         </p>
         <div id="inline-repartidor">
-            {% if current_order.get('repartidor') %}
-                <h4>Repartidor asignado</h4>
-                <p>Nombre: {{ current_order.repartidor.get('nombre') }}</p>
-                <p>Teléfono: {{ current_order.repartidor.get('telefono') }}</p>
-            {% else %}
-                <p>Aún no se ha asignado repartidor.</p>
-            {% endif %}
+            <!-- Repartidor info will be rendered here by client-side polling -->
+            <p>Aún no se ha asignado repartidor.</p>
         </div>
     </section>
 
@@ -356,6 +357,30 @@
         // start polling shortly after load
         setTimeout(fetchStatus, 500);
     })();
+    </script>
+    
+    <script>
+    // Dedupe helper used across the restaurant page scripts: removes duplicated blocks that show the same
+    // repartidor information (best-effort). This complements server-side fix to avoid duplicates.
+    function dedupeRepartidorBlocks(){
+        try{
+            const headers = Array.from(document.querySelectorAll('h3,h4')).filter(h=>/repartidor/i.test(h.innerText));
+            if(headers.length <= 1) return;
+            const seen = new Set();
+            headers.forEach(h => {
+                const block = h.closest('div,section') || h.parentElement;
+                const text = block ? block.innerText.replace(/\s+/g,' ').trim() : h.innerText.trim();
+                if(seen.has(text)){
+                    if(block && block.parentElement) block.parentElement.removeChild(block);
+                } else {
+                    seen.add(text);
+                }
+            });
+        }catch(e){ /* ignore */ }
+    }
+
+    // run once after load to clean any pre-existing duplicate
+    setTimeout(function(){ try{ dedupeRepartidorBlocks(); }catch(e){} }, 700);
     </script>
         
     {% endblock %}

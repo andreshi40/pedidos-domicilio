@@ -1,0 +1,19 @@
+Arquitectura (ASCII fallback)
+
+  [Browser] --> [Frontend (Flask :5000)] --> [API Gateway (FastAPI :8000)]
+                                               /      |        \ 
+                                              /       |         \
+                               [Auth (FastAPI)] [Restaurantes (FastAPI)] [Pedidos (FastAPI)] [Repartidores (FastAPI)]
+                                  |                 |                      |                      |
+                                  |                 |                      |                      |
+                               (MongoDB)         (Postgres)           (Postgres + Redis)     (Postgres)
+
+Flujos clave:
+- Frontend -> API Gateway -> servicios
+- Pedidos -> Restaurantes (reserve/release)
+- Pedidos -> Repartidores (assign-next)
+
+Notas:
+- Cada servicio corre en su propio contenedor y tiene su propia base de datos.
+- Redis se usa desde Pedidos para coordinación/cache.
+- Gateway valida JWT y reenvía peticiones internas.

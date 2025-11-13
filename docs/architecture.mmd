@@ -1,0 +1,46 @@
+flowchart LR
+  subgraph DockerCompose[Docker Compose]
+    direction TB
+    FE[Frontend\n(Flask :5000)]
+    GW[API Gateway\n(FastAPI :8000)]
+    subgraph services [Microservicios]
+      direction LR
+      AUTH[Auth\n(FastAPI :8001)\nMongoDB]
+      REST[Restaurantes\n(FastAPI :8002)\nPostgres(restaurantes-db)]
+      PED[Pedidos\n(FastAPI :8003)\nPostgres(pedidos-db)\nRedis]
+      REP[Repartidores\n(FastAPI :8004)\nPostgres(repartidores-db)]
+    end
+    subgraph infra [Datastores]
+      direction TB
+      MONGO[(MongoDB :27017)]
+      PG_REST[(Postgres restaur.)]
+      PG_PED[(Postgres pedidos)]
+      PG_REP[(Postgres repart.)]
+      REDIS[(Redis :6379)]
+    end
+  end
+
+  FE -->|HTTP (browser) | GW
+  GW -->|forward /api/v1/auth| AUTH
+  GW -->|forward /api/v1/restaurantes| REST
+  GW -->|forward /api/v1/pedidos| PED
+  GW -->|forward /api/v1/repartidores| REP
+
+  AUTH --> MONGO
+  REST --> PG_REST
+  PED --> PG_PED
+  PED --> REDIS
+  REP --> PG_REP
+
+  %% Important flows between services
+  PED -->|POST /api/v1/restaurantes/{rid}/menu/{item}/reserve| REST
+  PED -->|POST /assign-next| REP
+  REP -->|SELECT FOR UPDATE SKIP LOCKED on repartidores| PG_REP
+
+  style DockerCompose fill:#f9f,stroke:#333,stroke-width:1px
+  style services fill:#fffbcc,stroke:#333
+  style infra fill:#cff,stroke:#333
+
+  %% Notes
+  classDef note fill:#eee,stroke:#666,stroke-dasharray: 2 2
+  class PED,REP note
