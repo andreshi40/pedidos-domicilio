@@ -413,10 +413,24 @@ def new_user():
         payload = {"email": email, "password": password, "role": role}
         try:
             resp = requests.post(f"{API_GATEWAY_URL}/api/v1/auth/register", json=payload, timeout=5)
+            # If gateway fails (404/other) try direct auth service in compose network
+            if resp.status_code not in (200, 201):
+                try:
+                    resp = requests.post("http://authentication-service:8001/register", json=payload, timeout=4)
+                except requests.exceptions.RequestException:
+                    pass
+
             if resp.status_code in (200, 201):
                 # Autologin: intentar iniciar sesión inmediatamente después del registro
                 try:
                     login_resp = requests.post(f"{API_GATEWAY_URL}/api/v1/auth/login", json={"email": email, "password": password}, timeout=5)
+                    # fallback to direct auth service if gateway login fails or returns 404
+                    if login_resp.status_code != 200:
+                        try:
+                            login_resp = requests.post("http://authentication-service:8001/login", json={"email": email, "password": password}, timeout=4)
+                        except requests.exceptions.RequestException:
+                            pass
+
                     if login_resp.status_code == 200:
                         token = login_resp.json().get("access_token")
                         if token:
