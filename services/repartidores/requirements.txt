@@ -12,6 +12,9 @@ uvicorn
 psycopg2-binary
 sqlalchemy
 
+# multipart support for UploadFile/form parsing
+python-multipart
+
 # Si usas MongoDB:
 # motor
 # pymongo
