@@ -425,6 +425,10 @@ def new_user():
                                 me = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}, timeout=5)
                                 if me.status_code == 200:
                                     u = me.json()
+                                    # some auth services return {"user": {...}} while others
+                                    # return the user object directly; normalize both shapes
+                                    if isinstance(u, dict) and 'user' in u:
+                                        u = u.get('user') or {}
                                     if u.get('role') == 'admin':
                                         flash('No está permitido iniciar sesión como admin desde esta interfaz.')
                                         return redirect(url_for('login'))
