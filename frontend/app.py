@@ -204,6 +204,12 @@ def login():
             return render_template("login.html", title="Login")
         try:
             resp = requests.post(f"{API_GATEWAY_URL}/api/v1/auth/login", json={"email": email, "password": password}, timeout=5)
+            # fallback to direct authentication service when gateway login fails
+            if resp.status_code != 200:
+                try:
+                    resp = requests.post("http://authentication-service:8001/login", json={"email": email, "password": password}, timeout=4)
+                except requests.exceptions.RequestException:
+                    pass
             if resp.status_code == 200:
                 token = resp.json().get("access_token")
                 if token:
