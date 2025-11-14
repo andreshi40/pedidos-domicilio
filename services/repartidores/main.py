@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
+from fastapi import UploadFile, File
+import shutil
 import os
 
 from models import Base, RepartidorORM
@@ -25,6 +27,7 @@ class RepartidorIn(BaseModel):
 
 class RepartidorOut(RepartidorIn):
     estado: str
+    foto_url: Optional[str] = None
 
 
 @app.on_event("startup")
@@ -41,9 +44,9 @@ def on_startup():
                 cnt = db.query(RepartidorORM).count()
                 if cnt == 0:
                     defaults = [
-                        RepartidorORM(id='r1', nombre='Carlos', telefono='+34123456789', estado='disponible'),
-                        RepartidorORM(id='r2', nombre='Ana', telefono='+34198765432', estado='disponible'),
-                        RepartidorORM(id='r3', nombre='Luis', telefono='+34900112233', estado='disponible'),
+                        RepartidorORM(id='r1', nombre='Carlos', telefono='+34123456789', estado='disponible', foto_url=None),
+                        RepartidorORM(id='r2', nombre='Ana', telefono='+34198765432', estado='disponible', foto_url=None),
+                        RepartidorORM(id='r3', nombre='Luis', telefono='+34900112233', estado='disponible', foto_url=None),
                     ]
                     for d in defaults:
                         db.add(d)
@@ -81,7 +84,7 @@ def create_repartidor(payload: RepartidorIn):
         existing = db.query(RepartidorORM).filter(RepartidorORM.id == payload.id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Repartidor ya existe")
-        r = RepartidorORM(id=payload.id, nombre=payload.nombre, telefono=payload.telefono, estado='disponible')
+        r = RepartidorORM(id=payload.id, nombre=payload.nombre, telefono=payload.telefono, estado='disponible', foto_url=None)
         db.add(r)
         db.commit()
         return r.to_dict()
@@ -98,6 +101,40 @@ def get_repartidor(rep_id: str):
             raise HTTPException(status_code=404, detail="Repartidor no encontrado")
         return r.to_dict()
     finally:
+        db.close()
+
+
+
+@app.post("/api/v1/repartidores/{rep_id}/photo")
+def upload_repartidor_photo(rep_id: str, file: UploadFile = File(...)):
+    """Upload a photo for a repartidor and store its URL in the DB.
+
+    The file is saved under ./data/repartidor_photos/<rep_id>__<filename>
+    and the DB `foto_url` column will store the relative path.
+    """
+    db = SessionLocal()
+    try:
+        r = db.query(RepartidorORM).filter(RepartidorORM.id == rep_id).first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Repartidor no encontrado")
+        # ensure data dir exists
+        data_dir = os.path.join(os.getcwd(), 'data', 'repartidor_photos')
+        os.makedirs(data_dir, exist_ok=True)
+        safe_name = os.path.basename(file.filename)
+        dest_path = os.path.join(data_dir, f"{rep_id}__{safe_name}")
+        with open(dest_path, 'wb') as out_f:
+            shutil.copyfileobj(file.file, out_f)
+        # store relative path
+        rel = f"/data/repartidor_photos/{rep_id}__{safe_name}"
+        r.foto_url = rel
+        db.add(r)
+        db.commit()
+        return {"foto_url": rel}
+    finally:
+        try:
+            file.file.close()
+        except Exception:
+            pass
         db.close()
 
 

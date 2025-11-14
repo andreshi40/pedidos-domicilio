@@ -304,6 +304,86 @@ def restaurant_setup():
 
     return render_template('new_restaurant.html', title='Registrar restaurante')
 
+
+@app.route('/repartidor/setup', methods=['GET', 'POST'])
+def repartidor_setup():
+    """Onboarding form for repartidores (delivery riders).
+
+    Collects full name, teléfono and photo. Creates a repartidor record in the
+    repartidores service and uploads the photo.
+    """
+    token = session.get('access_token')
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        telefono = request.form.get('telefono')
+        foto = request.files.get('foto')
+
+        if not nombre:
+            flash('El nombre es requerido.')
+            return render_template('new_repartidor.html', title='Registro repartidor')
+
+        # determine user id from auth/me
+        user_id = None
+        try:
+            me = requests.get(f"{API_GATEWAY_URL}/api/v1/auth/me", headers=headers, timeout=4)
+            if me.status_code == 200:
+                u = me.json()
+                # support both {"user": {...}} and direct user object
+                if isinstance(u, dict) and 'user' in u:
+                    u = u.get('user') or {}
+                user_id = u.get('id') or u.get('sub') or u.get('email')
+        except Exception:
+            user_id = None
+
+        if not user_id:
+            # fallback to using email from session
+            user_id = session.get('user_email') or str(uuid.uuid4())
+
+        # create repartidor record
+        payload = {"id": user_id, "nombre": nombre, "telefono": telefono}
+        try:
+            resp = requests.post(f"{API_GATEWAY_URL}/api/v1/repartidores", json=payload, headers=headers, timeout=5)
+            if resp.status_code not in (200, 201):
+                # try direct service in compose network
+                direct = requests.post(f"http://repartidores-service:8004/api/v1/repartidores", json=payload, timeout=4)
+                if direct.status_code not in (200, 201):
+                    flash('No se pudo crear el repartidor en el servicio.')
+                    return render_template('new_repartidor.html', title='Registro repartidor')
+        except requests.exceptions.RequestException:
+            try:
+                direct = requests.post(f"http://repartidores-service:8004/api/v1/repartidores", json=payload, timeout=4)
+                if direct.status_code not in (200, 201):
+                    flash('No se pudo crear el repartidor en el servicio.')
+                    return render_template('new_repartidor.html', title='Registro repartidor')
+            except Exception:
+                flash('Error conectando al servicio de repartidores.')
+                return render_template('new_repartidor.html', title='Registro repartidor')
+
+        # upload photo if provided
+        if foto and foto.filename:
+            try:
+                files = {"file": (foto.filename, foto.stream.read(), foto.mimetype or 'application/octet-stream')}
+                try:
+                    r = requests.post(f"{API_GATEWAY_URL}/api/v1/repartidores/{user_id}/photo", files=files, headers=headers, timeout=5)
+                    if r.status_code not in (200, 201):
+                        # fallback direct
+                        requests.post(f"http://repartidores-service:8004/api/v1/repartidores/{user_id}/photo", files=files, timeout=4)
+                except requests.exceptions.RequestException:
+                    try:
+                        requests.post(f"http://repartidores-service:8004/api/v1/repartidores/{user_id}/photo", files=files, timeout=4)
+                    except Exception:
+                        pass
+            except Exception:
+                # ignore photo upload errors but inform user
+                flash('Advertencia: no se pudo subir la foto, puedes añadirla después.')
+
+        flash('Registro de repartidor completado.')
+        return redirect(url_for('client_index'))
+
+    return render_template('new_repartidor.html', title='Registro repartidor')
+
 @app.route("/new-user", methods=["GET", "POST"])
 def new_user():
     """Ruta para crear un nuevo usuario."""
@@ -358,6 +438,9 @@ def new_user():
                             # redirect them to the restaurant setup page so they can register their menu.
                             if role == 'restaurante' or session.get('user_role') == 'restaurante':
                                 return redirect(url_for('restaurant_setup'))
+                            # If the user registered as repartidor, redirect to repartidor onboarding
+                            if role == 'repartidor' or session.get('user_role') == 'repartidor':
+                                return redirect(url_for('repartidor_setup'))
                             return redirect(url_for("client_index"))
                 except requests.exceptions.RequestException:
                     # Si falla el autologin, redirigimos al login manual

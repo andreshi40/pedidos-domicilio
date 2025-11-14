@@ -9,6 +9,7 @@ class RepartidorORM(Base):
     id = Column(String, primary_key=True, index=True)
     nombre = Column(String, nullable=False)
     telefono = Column(String, nullable=True)
+    foto_url = Column(String, nullable=True)
     estado = Column(String, default='disponible')
 
     def to_dict(self):
@@ -16,5 +17,6 @@ class RepartidorORM(Base):
             'id': self.id,
             'nombre': self.nombre,
             'telefono': self.telefono,
+            'foto_url': self.foto_url,
             'estado': self.estado,
         }
