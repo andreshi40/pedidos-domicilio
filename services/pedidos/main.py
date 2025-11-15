@@ -391,14 +391,116 @@ def complete_pedido(order_id: str):
             except Exception:
                 pass
 
-        # free repartidor is not tracked locally; try best-effort freeing via repartidores service
-        # (we don't store which repartidor was assigned in DB in this simple implementation)
+        # Free repartidor if assigned
+        if o.repartidor_id:
+            try:
+                free_url = f"{REPARTIDORES_URL_BASE}/{o.repartidor_id}/free"
+                resp = requests.post(free_url, timeout=2)
+                print(f"Freed repartidor {o.repartidor_id}: status {resp.status_code}", flush=True)
+            except Exception as e:
+                # Log but don't fail the completion
+                print(f"Warning: Failed to free repartidor {o.repartidor_id}: {e}", flush=True)
 
         o.estado = 'completado'
         db.add(o)
         db.commit()
         items = [{"item_id": it.item_id, "nombre": it.nombre, "precio": float(it.precio), "cantidad": it.cantidad} for it in o.items]
         return {"id": o.id, "restaurante_id": o.restaurante_id, "cliente_email": o.cliente_email, "direccion": o.direccion, "items": items, "estado": o.estado, "repartidor": None}
+    finally:
+        db.close()
+
+
+@app.get('/api/v1/restaurante/{restaurante_id}/orders')
+def orders_for_restaurante(restaurante_id: str, year: int = None, month: int = None):
+    """Return orders for a restaurant filtered by year/month with statistics.
+    
+    Returns:
+    - orders: list of all orders for the period
+    - stats_day: sales by day
+    - stats_month: total sales for the month
+    - pending_count: number of pending orders (not completed)
+    - completed_count: number of completed orders
+    """
+    db = SessionLocal()
+    try:
+        q = db.query(OrderORM).filter(OrderORM.restaurante_id == restaurante_id)
+        
+        # filter by month/year if provided
+        if year and month:
+            start = datetime(year, month, 1)
+            if month == 12:
+                end = datetime(year + 1, 1, 1)
+            else:
+                end = datetime(year, month + 1, 1)
+            q = q.filter(OrderORM.created_at >= start, OrderORM.created_at < end)
+        
+        rows = q.order_by(OrderORM.created_at.desc()).all()
+        
+        orders = []
+        pending_count = 0
+        completed_count = 0
+        total_month = 0.0
+        stats_by_day = {}
+        
+        for o in rows:
+            # Calculate order total
+            total = 0.0
+            items_list = []
+            for it in o.items:
+                subtotal = float(it.precio) * int(it.cantidad)
+                total += subtotal
+                items_list.append({
+                    "nombre": it.nombre, 
+                    "precio": float(it.precio), 
+                    "cantidad": it.cantidad,
+                    "subtotal": round(subtotal, 2)
+                })
+            
+            # Count by status
+            if o.estado == 'completado':
+                completed_count += 1
+            else:
+                pending_count += 1
+            
+            # Accumulate totals
+            total_month += total
+            
+            # Group by day
+            day_key = o.created_at.strftime('%Y-%m-%d')
+            if day_key not in stats_by_day:
+                stats_by_day[day_key] = {"date": day_key, "total": 0.0, "count": 0}
+            stats_by_day[day_key]["total"] += total
+            stats_by_day[day_key]["count"] += 1
+            
+            orders.append({
+                "id": o.id,
+                "cliente_email": o.cliente_email,
+                "nombre_cliente": getattr(o, 'nombre_cliente', None),
+                "apellido_cliente": getattr(o, 'apellido_cliente', None),
+                "telefono_cliente": getattr(o, 'telefono_cliente', None),
+                "direccion": o.direccion,
+                "estado": o.estado,
+                "repartidor_nombre": getattr(o, 'repartidor_nombre', None),
+                "created_at": o.created_at.isoformat(),
+                "total": round(total, 2),
+                "items": items_list
+            })
+        
+        # Convert stats_by_day to sorted list
+        stats_day = sorted(stats_by_day.values(), key=lambda x: x["date"], reverse=True)
+        for day in stats_day:
+            day["total"] = round(day["total"], 2)
+        
+        return {
+            "orders": orders,
+            "stats_day": stats_day,
+            "stats_month": {
+                "total": round(total_month, 2),
+                "orders_count": len(orders),
+                "pending_count": pending_count,
+                "completed_count": completed_count
+            }
+        }
     finally:
         db.close()
 

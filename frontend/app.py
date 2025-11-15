@@ -134,14 +134,41 @@ mock_store = MockStore()
 
 @app.route("/")
 def index():
-    """Ruta de la página de inicio."""
-    # If user is logged in, make the restaurants search the post-login home.
+    """Ruta de la página de inicio con listado de restaurantes."""
+    # If user is logged in, redirect to client home
     token = session.get("access_token")
     if token:
         return redirect(url_for("client_index"))
 
-    # Otherwise show the public landing page.
-    return render_template("index.html", title="Inicio")
+    # Load restaurants for public landing page
+    q = request.args.get('q')
+    restos = []
+    gw_path = f"/api/v1/restaurantes?q={q}" if q else "/api/v1/restaurantes?limit=20"
+    try:
+        resp = requests.get(f"{API_GATEWAY_URL}{gw_path}", timeout=5)
+        if resp.status_code == 200:
+            restos = resp.json().get('restaurantes') or resp.json()
+        else:
+            # Fallback to direct service call
+            if resp.status_code == 404:
+                try:
+                    direct_url = f"http://restaurantes-service:8002{gw_path}"
+                    dr = requests.get(direct_url, timeout=5)
+                    if dr.status_code == 200:
+                        restos = dr.json().get('restaurantes') or dr.json()
+                except requests.exceptions.RequestException:
+                    restos = []
+    except requests.exceptions.RequestException:
+        # Gateway inaccessible: try direct
+        try:
+            direct_url = f"http://restaurantes-service:8002{gw_path}"
+            dr = requests.get(direct_url, timeout=5)
+            if dr.status_code == 200:
+                restos = dr.json().get('restaurantes') or dr.json()
+        except requests.exceptions.RequestException:
+            restos = []
+
+    return render_template("index.html", title="Inicio", restaurantes=restos, q=q)
 
 
 @app.route("/home")
@@ -378,26 +405,42 @@ def restaurant_dashboard():
         flash('No tienes permisos para acceder a esta página.')
         return redirect(url_for('client_index'))
     
-    # Try to get restaurant_id from session or find by user
-    restaurant_id = session.get('restaurant_id')
+    # Get user_id from session
+    user_id = session.get('user_id')
     token = session.get('access_token')
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     
-    # If no restaurant_id in session, try to find restaurants
-    # (In production, you'd have a user_id -> restaurant mapping in DB)
     restaurante = None
     menu_items = []
+    restaurant_id = session.get('restaurant_id')
     
-    if restaurant_id:
+    # Try to find restaurant by user_id first
+    if user_id and not restaurant_id:
         try:
-            # Get restaurant info
             try:
-                resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{restaurant_id}", headers=headers, timeout=3)
+                resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/by-user/{user_id}", headers=headers, timeout=3)
             except requests.exceptions.RequestException:
-                resp = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{restaurant_id}", timeout=3)
+                resp = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/by-user/{user_id}", timeout=3)
             
             if resp.status_code == 200:
                 restaurante = resp.json()
+                restaurant_id = restaurante.get('id')
+                session['restaurant_id'] = restaurant_id  # Save to session for future requests
+        except Exception:
+            pass
+    
+    # If we have restaurant_id (from session or just found), get full details
+    if restaurant_id:
+        try:
+            # Get restaurant info if not already loaded
+            if not restaurante:
+                try:
+                    resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{restaurant_id}", headers=headers, timeout=3)
+                except requests.exceptions.RequestException:
+                    resp = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{restaurant_id}", timeout=3)
+                
+                if resp.status_code == 200:
+                    restaurante = resp.json()
             
             # Get menu
             try:
@@ -411,10 +454,42 @@ def restaurant_dashboard():
         except Exception:
             flash('Error al cargar la información del restaurante.')
     
+    # Get orders for current month
+    orders_data = {}
+    if restaurant_id:
+        try:
+            from datetime import datetime
+            now = datetime.now()
+            year = now.year
+            month = now.month
+            
+            print(f"[DASHBOARD] Loading orders for restaurant_id={restaurant_id}, year={year}, month={month}", flush=True)
+            
+            # Call pedidos service directly since this endpoint is not in gateway routing
+            try:
+                orders_resp = requests.get(
+                    f"http://pedidos-service:8003/api/v1/restaurante/{restaurant_id}/orders",
+                    params={"year": year, "month": month},
+                    timeout=5
+                )
+            except requests.exceptions.RequestException as e:
+                print(f"[DASHBOARD] Error calling pedidos service: {e}", flush=True)
+                orders_resp = None
+            
+            if orders_resp and orders_resp.status_code == 200:
+                orders_data = orders_resp.json()
+                print(f"[DASHBOARD] Loaded {len(orders_data.get('orders', []))} orders", flush=True)
+            elif orders_resp:
+                print(f"[DASHBOARD] Orders response status: {orders_resp.status_code}", flush=True)
+        except Exception as e:
+            print(f"[DASHBOARD] Error loading orders: {e}", flush=True)
+            orders_data = {}
+    
     return render_template('restaurant_dashboard.html', 
                          title='Dashboard Restaurante', 
                          restaurante=restaurante, 
-                         menu_items=menu_items)
+                         menu_items=menu_items,
+                         orders_data=orders_data)
 
 
 @app.route('/restaurant/add-menu-items', methods=['GET', 'POST'])
@@ -1320,14 +1395,8 @@ def restaurante_photo(rest_id):
     restaurantes service (directly inside the docker network).
     """
     try:
-        # Try via API Gateway first with short timeout
-        try:
-            resp = requests.get(f"{API_GATEWAY_URL}/api/v1/restaurantes/{rest_id}/photo", timeout=1, stream=True)
-            if resp.status_code == 200:
-                return (resp.content, resp.status_code, {'Content-Type': resp.headers.get('content-type','image/jpeg')})
-        except requests.exceptions.RequestException:
-            pass
-        # Fallback to direct service inside compose network
+        # Skip API Gateway for photos - go directly to service
+        # The gateway wraps binary responses in JSON which breaks images
         direct = requests.get(f"http://restaurantes-service:8002/api/v1/restaurantes/{rest_id}/photo", timeout=3, stream=True)
         if direct.status_code == 200:
             return (direct.content, direct.status_code, {'Content-Type': direct.headers.get('content-type','image/jpeg')})

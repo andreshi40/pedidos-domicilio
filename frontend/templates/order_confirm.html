@@ -89,7 +89,9 @@
                                 <div>
                                     <p id="rep-nombre" style="margin: 5px 0;"><strong>Nombre:</strong> ${rep.nombre || rep.name || ''}</p>
                                     <p id="rep-tel" style="margin: 5px 0;"><strong>Teléfono:</strong> ${rep.telefono || ''}</p>
-                                    <p style="margin: 5px 0; color: #4CAF50; font-weight: bold;">✓ En camino</p>
+                                    <p id="rep-estado" style="margin: 5px 0; font-weight: bold;">
+                                        ${estado === 'completado' ? '<span style="color: #4CAF50;">✓ Pedido entregado</span>' : '<span style="color: #FF9800;">🚚 En camino</span>'}
+                                    </p>
                                 </div>
                             </div>
                         `;
@@ -98,8 +100,14 @@
                         // Just update text fields without touching the image
                         const nombreEl = document.getElementById('rep-nombre');
                         const telEl = document.getElementById('rep-tel');
+                        const estadoRepEl = document.getElementById('rep-estado');
                         if(nombreEl) nombreEl.innerHTML = '<strong>Nombre:</strong> ' + (rep.nombre || rep.name || '');
                         if(telEl) telEl.innerHTML = '<strong>Teléfono:</strong> ' + (rep.telefono || '');
+                        if(estadoRepEl) {
+                            estadoRepEl.innerHTML = estado === 'completado' 
+                                ? '<span style="color: #4CAF50;">✓ Pedido entregado</span>' 
+                                : '<span style="color: #FF9800;">🚚 En camino</span>';
+                        }
                     }
                 } else if(!rep){
                     repContainer.innerHTML = '<p>Aún no se ha asignado repartidor.</p>';

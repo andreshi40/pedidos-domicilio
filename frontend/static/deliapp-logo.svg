@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
+  <!-- Box icon -->
+  <g transform="translate(10, 10)">
+    <rect x="5" y="15" width="20" height="20" fill="none" stroke="#E85C3F" stroke-width="2.5" rx="2"/>
+    <path d="M 15 5 L 25 10 L 25 15 L 15 20 L 5 15 L 5 10 Z" fill="none" stroke="#E85C3F" stroke-width="2.5" stroke-linejoin="round"/>
+    <line x1="5" y1="15" x2="5" y2="35" stroke="#E85C3F" stroke-width="2.5"/>
+    <line x1="25" y1="15" x2="25" y2="35" stroke="#E85C3F" stroke-width="2.5"/>
+    <line x1="15" y1="20" x2="15" y2="35" stroke="#E85C3F" stroke-width="2.5"/>
+  </g>
+  
+  <!-- Person icon on top of box -->
+  <g transform="translate(10, 10)">
+    <circle cx="15" cy="8" r="3.5" fill="#E85C3F"/>
+    <path d="M 10 12 Q 15 10 20 12" fill="none" stroke="#E85C3F" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Text "deliapp" -->
+  <text x="50" y="35" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#E85C3F">deliapp</text>
+</svg>

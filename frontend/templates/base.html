@@ -10,14 +10,13 @@
     <header>
         <div class="header-top">
                 <div class="header-left">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="site-logo">
+                <img src="{{ url_for('static', filename='deliapp-logo.svg') }}" alt="Deliapp" class="site-logo">
                 <h1>{{ title }}</h1>
             </div>
             <button id="nav-toggle" class="nav-toggle" aria-label="Abrir menú">☰</button>
             <nav class="main-nav" id="main-nav">
                 <div class="nav-links">
                   <a href="{{ url_for('index') }}">Inicio</a>
-                  <a href="{{ url_for('client_index') }}">Buscar restaurantes</a>
                                     {% if session.get('last_order_id') %}
                                         <a href="{{ url_for('order_status', order_id=session.get('last_order_id')) }}">Ver último pedido</a>
                                     {% endif %}
@@ -52,7 +51,10 @@
     </main>
 
     <footer>
-        <p>&copy; 2025 deliapp</p>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <p>&copy; 2025</p>
+            <img src="{{ url_for('static', filename='deliapp-logo.svg') }}" alt="Deliapp" style="height: 24px; width: auto;">
+        </div>
     </footer>
 </body>
 <script>

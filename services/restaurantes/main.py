@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import FileResponse
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -39,6 +39,10 @@ def seed_db_if_empty() -> None:
 
 @app.on_event("startup")
 def startup() -> None:
+    # Create photos directory if it doesn't exist
+    photos_dir = os.path.join(os.getcwd(), 'data', 'restaurante_photos')
+    os.makedirs(photos_dir, exist_ok=True)
+    
     # Try to create tables and seed with a small retry loop for DB readiness
     attempts = 0
     while attempts < 10:
@@ -61,6 +65,19 @@ def list_restaurantes(q: Optional[str] = None, limit: int = 20):
             query = query.filter(RestauranteORM.nombre.ilike(like) | RestauranteORM.descripcion.ilike(like))
         rows = query.limit(max(1, limit)).all()
         return {"restaurantes": [r.to_dict() for r in rows]}
+    finally:
+        db.close()
+
+
+@app.get("/api/v1/restaurantes/by-user/{user_id}")
+def get_restaurante_by_user(user_id: str):
+    """Get restaurant by user_id."""
+    db = database_sql.SessionLocal()
+    try:
+        r = db.query(RestauranteORM).filter(RestauranteORM.user_id == user_id).first()
+        if not r:
+            raise HTTPException(status_code=404, detail="No se encontró restaurante para este usuario")
+        return r.to_dict()
     finally:
         db.close()
 
@@ -88,7 +105,7 @@ def get_menu(rest_id: str):
 
 
 @app.post("/api/v1/restaurantes")
-def create_restaurante(payload: dict):
+def create_restaurante(payload: dict, request: Request):
     """Create a restaurant. Expects JSON with at least 'nombre'. If 'id' is provided it will be used, otherwise generated."""
     db = database_sql.SessionLocal()
     try:
@@ -99,7 +116,17 @@ def create_restaurante(payload: dict):
         existing = db.query(RestauranteORM).filter(RestauranteORM.id == rest_id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Restaurante with given id already exists")
-        r = RestauranteORM(id=rest_id, nombre=nombre, direccion=payload.get('direccion'), descripcion=payload.get('descripcion'))
+        
+        # Get user_id from headers (set by API Gateway from JWT token)
+        user_id = request.headers.get('X-User-Id')
+        
+        r = RestauranteORM(
+            id=rest_id, 
+            nombre=nombre, 
+            direccion=payload.get('direccion'), 
+            descripcion=payload.get('descripcion'),
+            user_id=user_id
+        )
         db.add(r)
         db.commit()
         return r.to_dict()

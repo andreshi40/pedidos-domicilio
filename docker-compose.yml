@@ -60,6 +60,8 @@ services:
        - DATABASE_URL=postgresql://user:password@restaurantes-db:5432/service1_db
      depends_on:
        - restaurantes-db
+     volumes:
+       - restaurante_photos:/app/data/restaurante_photos
 
   # Microservicio de Repartidores
   repartidores-service:
@@ -143,3 +145,4 @@ volumes:
   pedidos_data:
   repartidores_data:
   redis_data:
+  restaurante_photos:

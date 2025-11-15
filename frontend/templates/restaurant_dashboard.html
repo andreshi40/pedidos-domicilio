@@ -4,6 +4,30 @@
 <h2>Dashboard - Restaurante</h2>
 
 {% if restaurante %}
+    <!-- Estadísticas del mes (movidas al principio) -->
+    {% if orders_data %}
+    <div style="margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+            <div style="padding: 20px; border: 1px solid #ddd; border-radius: 6px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${{ "%.2f"|format(orders_data.stats_month.total) }}</div>
+                <div style="font-size: 14px; opacity: 0.9;">Ventas del Mes</div>
+            </div>
+            <div style="padding: 20px; border: 1px solid #ddd; border-radius: 6px; background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">{{ orders_data.stats_month.orders_count }}</div>
+                <div style="font-size: 14px; opacity: 0.9;">Total Pedidos</div>
+            </div>
+            <div style="padding: 20px; border: 1px solid #ddd; border-radius: 6px; background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); color: white; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">{{ orders_data.stats_month.pending_count }}</div>
+                <div style="font-size: 14px; opacity: 0.9;">Pendientes</div>
+            </div>
+            <div style="padding: 20px; border: 1px solid #ddd; border-radius: 6px; background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%); color: white; text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">{{ orders_data.stats_month.completed_count }}</div>
+                <div style="font-size: 14px; opacity: 0.9;">Completados</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div style="display: grid; grid-template-columns: 200px 1fr; gap: 20px; margin-bottom: 20px;">
         <!-- Columna izquierda: Logo del restaurante -->
         <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; text-align: center;">
@@ -98,12 +122,128 @@
                     ➕ Agregar items al menú
                 </a>
             </div>
+            
+            <!-- Sección de Pedidos y Estadísticas (movida aquí después del menú) -->
+            {% if orders_data %}
+            <div style="margin-top: 30px;">
+                <!-- Ventas por día -->
+        {% if orders_data.stats_day and orders_data.stats_day|length > 0 %}
+        <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; background: white; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; margin-bottom: 15px;">📊 Ventas por Día</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Fecha</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #ddd;">Pedidos</th>
+                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #ddd;">Total Ventas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for day in orders_data.stats_day[:7] %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px;">{{ day.date }}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <span style="background: #2196F3; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                                {{ day.count }}
+                            </span>
+                        </td>
+                        <td style="padding: 10px; text-align: right; color: #4CAF50; font-weight: bold; font-size: 16px;">
+                            ${{ "%.2f"|format(day.total) }}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
-    </div>
-    
-    <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; background: #f9f9f9;">
-        <h3>Pedidos Recientes</h3>
-        <p style="color: #666; font-size: 14px;">Próximamente: Verás los pedidos realizados a tu restaurante aquí.</p>
+        {% endif %}
+
+        <!-- Lista de pedidos -->
+        <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; background: white;">
+            <h3 style="margin-top: 0; margin-bottom: 15px;">🛒 Todos los Pedidos del Mes</h3>
+            {% if orders_data.orders and orders_data.orders|length > 0 %}
+                <div style="max-height: 600px; overflow-y: auto;">
+                {% for order in orders_data.orders %}
+                    <div style="border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px; background: {% if order.estado == 'completado' %}#f1f8f4{% else %}#fff8e1{% endif %};">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                            <div>
+                                <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 5px;">
+                                    {% if order.nombre_cliente %}
+                                        👤 {{ order.nombre_cliente }} {{ order.apellido_cliente or '' }}
+                                    {% else %}
+                                        📧 {{ order.cliente_email or 'Cliente sin nombre' }}
+                                    {% endif %}
+                                </div>
+                                <div style="font-size: 12px; color: #666;">
+                                    📍 {{ order.direccion }}
+                                </div>
+                                {% if order.telefono_cliente %}
+                                <div style="font-size: 12px; color: #666;">
+                                    📞 {{ order.telefono_cliente }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: bold; color: #4CAF50; margin-bottom: 5px;">
+                                    ${{ "%.2f"|format(order.total) }}
+                                </div>
+                                <div style="font-size: 11px; color: #999;">
+                                    🕐 {{ order.created_at.split('T')[0] }} {{ order.created_at.split('T')[1].split('.')[0] if 'T' in order.created_at else '' }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Items del pedido -->
+                        <div style="background: white; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                            <div style="font-size: 12px; font-weight: bold; color: #666; margin-bottom: 8px;">Productos:</div>
+                            {% for item in order['items'] %}
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; padding: 4px 0; border-bottom: 1px dotted #eee;">
+                                    <span>{{ item.cantidad }}x {{ item.nombre }}</span>
+                                    <span style="color: #666;">${{ "%.2f"|format(item.subtotal) }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Estado y repartidor -->
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                {% if order.estado == 'completado' %}
+                                    <span style="background: #4CAF50; color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                        ✓ ENTREGADO
+                                    </span>
+                                {% elif order.estado == 'asignado' %}
+                                    <span style="background: #FF9800; color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                        🚚 EN CAMINO
+                                    </span>
+                                {% else %}
+                                    <span style="background: #f44336; color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                        ⏱ {{ order.estado.upper() }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            {% if order.repartidor_nombre %}
+                                <div style="font-size: 12px; color: #666;">
+                                    🚴 Repartidor: <strong>{{ order.repartidor_nombre }}</strong>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📦</div>
+                    <p>No hay pedidos este mes</p>
+                </div>
+            {% endif %}
+            </div>
+            </div>
+            {% else %}
+            <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; background: #f9f9f9; margin-top: 20px;">
+                <h3>📦 Pedidos</h3>
+                <p style="color: #666; font-size: 14px;">Cargando información de pedidos...</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
     
     <script>
