@@ -1,6 +1,7 @@
 # Dependencias básicas para un servicio FastAPI
 fastapi
 uvicorn
+python-multipart
 
 # Dependencias para persistencia y llamadas HTTP entre servicios
 psycopg2-binary

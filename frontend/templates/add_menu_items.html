@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Agregar Items al Menú</h2>
+
+{% if restaurante %}
+    <div style="background: #f0f0f0; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+        <p style="margin: 5px 0;"><strong>Restaurante:</strong> {{ restaurante.nombre }}</p>
+        {% if restaurante.direccion %}
+            <p style="margin: 5px 0;"><strong>Dirección:</strong> {{ restaurante.direccion }}</p>
+        {% endif %}
+    </div>
+{% endif %}
+
+<form method="POST" style="max-width: 800px;" onsubmit="return handleSubmit(event)">
+    <div id="menu-items-section">
+        <h3>Items del Menú</h3>
+        <div id="menu-items-container">
+            <div class="menu-item-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: end;">
+                <div>
+                    <label for="item_nombre_0">Nombre del producto:</label>
+                    <input type="text" id="item_nombre_0" name="item_nombre" required>
+                </div>
+                <div>
+                    <label for="item_precio_0">Precio:</label>
+                    <input type="number" id="item_precio_0" name="item_precio" step="0.01" min="0" required>
+                </div>
+                <div>
+                    <label for="item_cantidad_0">Stock:</label>
+                    <input type="number" id="item_cantidad_0" name="item_cantidad" min="0" required>
+                </div>
+                <div>
+                    <button type="button" onclick="removeMenuItem(this)" class="btn-danger" style="background: #f44336; padding: 10px 15px; margin: 0;">
+                        ✕
+                    </button>
+                </div>
+            </div>
+        </div>
+        <button type="button" onclick="addMenuItem()" class="btn" style="background: #4CAF50;">
+            ➕ Agregar otro item
+        </button>
+    </div>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd;">
+        <button type="submit" class="btn" style="background: #FF9800; font-size: 18px; padding: 12px 30px;">
+            💾 Guardar Items
+        </button>
+        <a href="{{ url_for('restaurant_dashboard') }}" class="btn" style="background: #999; margin-left: 10px;">
+            ← Volver al Dashboard
+        </a>
+    </div>
+</form>
+
+<script>
+let menuItemCount = 1;
+let isSubmitting = false;
+
+function handleSubmit(event) {
+    if (isSubmitting) {
+        event.preventDefault();
+        return false;
+    }
+    
+    isSubmitting = true;
+    // Disable submit button
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Guardando...';
+    }
+    
+    return true;
+}
+
+function addMenuItem() {
+    const container = document.getElementById('menu-items-container');
+    const newRow = document.createElement('div');
+    newRow.className = 'menu-item-row';
+    newRow.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: end;';
+    newRow.innerHTML = `
+        <div>
+            <label for="item_nombre_${menuItemCount}">Nombre del producto:</label>
+            <input type="text" id="item_nombre_${menuItemCount}" name="item_nombre" required>
+        </div>
+        <div>
+            <label for="item_precio_${menuItemCount}">Precio:</label>
+            <input type="number" id="item_precio_${menuItemCount}" name="item_precio" step="0.01" min="0" required>
+        </div>
+        <div>
+            <label for="item_cantidad_${menuItemCount}">Stock:</label>
+            <input type="number" id="item_cantidad_${menuItemCount}" name="item_cantidad" min="0" required>
+        </div>
+        <div>
+            <button type="button" onclick="removeMenuItem(this)" class="btn-danger" style="background: #f44336; padding: 10px 15px; margin: 0;">
+                ✕
+            </button>
+        </div>
+    `;
+    container.appendChild(newRow);
+    menuItemCount++;
+}
+
+function removeMenuItem(button) {
+    const container = document.getElementById('menu-items-container');
+    const rows = container.getElementsByClassName('menu-item-row');
+    
+    // Don't allow removing if only one row exists
+    if (rows.length > 1) {
+        button.closest('.menu-item-row').remove();
+    } else {
+        alert('Debes tener al menos un item en el menú.');
+    }
+}
+</script>
+{% endblock %}

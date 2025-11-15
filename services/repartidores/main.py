@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from fastapi import UploadFile, File
@@ -92,6 +92,32 @@ def create_repartidor(payload: RepartidorIn):
         db.close()
 
 
+class RepartidorUpdate(BaseModel):
+    nombre: Optional[str] = None
+    telefono: Optional[str] = None
+
+
+@app.put("/api/v1/repartidores/{rep_id}")
+def update_repartidor(rep_id: str, payload: RepartidorUpdate):
+    """Actualizar información del repartidor (nombre, teléfono)."""
+    db = SessionLocal()
+    try:
+        r = db.query(RepartidorORM).filter(RepartidorORM.id == rep_id).first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Repartidor no encontrado")
+        
+        if payload.nombre is not None:
+            r.nombre = payload.nombre
+        if payload.telefono is not None:
+            r.telefono = payload.telefono
+        
+        db.add(r)
+        db.commit()
+        return r.to_dict()
+    finally:
+        db.close()
+
+
 @app.get("/api/v1/repartidores/{rep_id}")
 def get_repartidor(rep_id: str):
     db = SessionLocal()
@@ -124,12 +150,13 @@ def upload_repartidor_photo(rep_id: str, file: UploadFile = File(...)):
         dest_path = os.path.join(data_dir, f"{rep_id}__{safe_name}")
         with open(dest_path, 'wb') as out_f:
             shutil.copyfileobj(file.file, out_f)
-        # store relative path
-        rel = f"/data/repartidor_photos/{rep_id}__{safe_name}"
-        r.foto_url = rel
+        # store filename (we will serve via the GET /photo endpoint)
+        filename = f"{rep_id}__{safe_name}"
+        r.foto_url = filename
         db.add(r)
         db.commit()
-        return {"foto_url": rel}
+        # return stored filename (clients can request the photo via the service GET endpoint)
+        return {"foto_url": filename}
     finally:
         try:
             file.file.close()
@@ -206,3 +233,25 @@ def health_check():
 @app.get("/")
 def read_root():
     return {"message": "Servicio de repartidores en funcionamiento."}
+
+
+@app.get("/api/v1/repartidores/{rep_id}/photo")
+def get_repartidor_photo(rep_id: str):
+    """Serve the uploaded photo for a repartidor (if present).
+
+    The uploaded file is looked up in ./data/repartidor_photos by filename
+    prefix <rep_id>__ and returned with the correct content-type.
+    """
+    data_dir = os.path.join(os.getcwd(), 'data', 'repartidor_photos')
+    if not os.path.exists(data_dir):
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+
+    # find file that starts with rep_id__
+    for fname in os.listdir(data_dir):
+        if fname.startswith(f"{rep_id}__"):
+            full = os.path.join(data_dir, fname)
+            if os.path.isfile(full):
+                # FileResponse will set correct headers and stream file
+                return FileResponse(full)
+
+    raise HTTPException(status_code=404, detail="Foto no encontrada")

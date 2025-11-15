@@ -8,22 +8,28 @@
   <body>
     {% include 'base.html' %}
     <div class="container">
-      <h2>Registro repartidor</h2>
+      <h2>{{ title }}</h2>
       <form action="{{ url_for('repartidor_setup') }}" method="POST" enctype="multipart/form-data">
         <div>
           <label for="nombre">Nombres y apellidos</label><br>
-          <input type="text" id="nombre" name="nombre" required>
+          <input type="text" id="nombre" name="nombre" value="{{ repartidor.nombre if repartidor else '' }}" required>
         </div>
         <div>
           <label for="telefono">Teléfono</label><br>
-          <input type="text" id="telefono" name="telefono">
+          <input type="text" id="telefono" name="telefono" value="{{ repartidor.telefono if repartidor else '' }}">
         </div>
         <div>
-          <label for="foto">Foto (opcional)</label><br>
+          <label for="foto">Foto {% if repartidor and repartidor.foto_url %}(actualizar){% else %}(opcional){% endif %}</label><br>
+          {% if repartidor and repartidor.foto_url %}
+            <div style="margin-bottom: 10px;">
+              <img src="/repartidor/photo/{{ session.get('user_id') }}" alt="Foto actual" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid #4CAF50;">
+              <p style="font-size: 12px; color: #666;">Foto actual - sube una nueva para reemplazarla</p>
+            </div>
+          {% endif %}
           <input type="file" id="foto" name="foto" accept="image/*">
         </div>
         <div style="margin-top:10px;">
-          <button type="submit">Completar registro</button>
+          <button type="submit">{{ 'Actualizar perfil' if repartidor else 'Completar registro' }}</button>
         </div>
       </form>
     </div>

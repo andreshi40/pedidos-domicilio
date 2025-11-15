@@ -1,5 +1,7 @@
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy import Column, String, Integer, ForeignKey, Numeric
+from sqlalchemy import DateTime
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -10,8 +12,12 @@ class OrderORM(Base):
     id = Column(String, primary_key=True, index=True)
     restaurante_id = Column(String, nullable=False)
     cliente_email = Column(String, nullable=True)
+    nombre_cliente = Column(String, nullable=True)
+    apellido_cliente = Column(String, nullable=True)
+    telefono_cliente = Column(String, nullable=True)
     direccion = Column(String, nullable=False)
     estado = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     # store assigned repartidor info snapshot for easier queries and UI
     repartidor_id = Column(String, nullable=True)
     repartidor_nombre = Column(String, nullable=True)

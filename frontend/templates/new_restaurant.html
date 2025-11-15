@@ -2,7 +2,7 @@
 
 {% block content %}
 <h2>Registro de Restaurante</h2>
-<form id="restaurant-form" method="post" action="{{ url_for('restaurant_setup') }}">
+<form id="restaurant-form" method="post" action="{{ url_for('restaurant_setup') }}" enctype="multipart/form-data">
     <label for="nombre">Nombre del restaurante</label>
     <input type="text" id="nombre" name="nombre" required>
 
@@ -11,6 +11,9 @@
 
     <label for="telefono">Teléfono</label>
     <input type="text" id="telefono" name="telefono">
+
+    <label for="foto">Logo/Foto del restaurante (opcional)</label>
+    <input type="file" id="foto" name="foto" accept="image/*">
 
     <h3>Menú</h3>
     <table id="menu-table">

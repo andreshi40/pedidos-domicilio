@@ -4,16 +4,51 @@
 <h2>Estado del pedido</h2>
 
 {% if pedido %}
-    <p>ID: <span id="order-id">{{ pedido.get('id') or pedido.get('pedido_id') or pedido.get('order_id') }}</span></p>
-    <p>Estado: <span id="order-estado">{{ pedido.get('estado') or pedido.get('status') }}</span></p>
-    <h3>Items</h3>
-    <ul>
-    {% for it in pedido.get('items',[]) %}
-        <li>{{ it.get('nombre') or it.get('name') }} x {{ it.get('cantidad') }}</li>
-    {% endfor %}
-    </ul>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+        <!-- Columna izquierda: Información del pedido -->
+        <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px;">
+            <h3>Información del pedido</h3>
+            <p><strong>ID:</strong> <span id="order-id">{{ pedido.get('id') or pedido.get('pedido_id') or pedido.get('order_id') }}</span></p>
+            <p><strong>Estado:</strong> <span id="order-estado">{{ pedido.get('estado') or pedido.get('status') }}</span></p>
+            
+            <h4>Información del cliente</h4>
+            <p><strong>Nombre:</strong> {{ pedido.get('nombre_cliente', '') }} {{ pedido.get('apellido_cliente', '') }}</p>
+            <p><strong>Teléfono:</strong> {{ pedido.get('telefono_cliente', '') }}</p>
+            <p><strong>Dirección:</strong> {{ pedido.get('direccion', '') }}</p>
+        </div>
+        
+        <!-- Columna derecha: Items y total -->
+        <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px;">
+            <h3>Items del pedido</h3>
+            
+            {% if pedido.get('items') and pedido.get('items')|length > 0 %}
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                {% set total_pedido = namespace(value=0) %}
+                {% for it in pedido.get('items',[]) %}
+                    {% set precio_item = it.get('precio', 0)|float %}
+                    {% set cantidad_item = it.get('cantidad', 1)|int %}
+                    {% set subtotal = precio_item * cantidad_item %}
+                    {% set total_pedido.value = total_pedido.value + subtotal %}
+                    <li style="padding: 10px; margin-bottom: 8px; border-bottom: 1px solid #eee; background: #f9f9f9; border-radius: 4px;">
+                        <strong style="font-size: 15px;">{{ it.get('nombre') or it.get('name') }}</strong><br>
+                        <span style="color: #666; font-size: 13px;">
+                            Cantidad: {{ cantidad_item }} x ${{ "%.2f"|format(precio_item) }}
+                            <strong style="color: #333; margin-left: 10px;">= ${{ "%.2f"|format(subtotal) }}</strong>
+                        </span>
+                    </li>
+                {% endfor %}
+                </ul>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #4CAF50; color: white; border-radius: 6px; text-align: center;">
+                    <h2 style="margin: 0; font-size: 24px;">TOTAL: <span id="order-total">${{ "%.2f"|format(total_pedido.value) }}</span></h2>
+                </div>
+            {% else %}
+                <p style="color: #999;">No hay items en este pedido.</p>
+            {% endif %}
+        </div>
+    </div>
 
-    <div id="dynamic-repartidor">
+    <div id="dynamic-repartidor" style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; margin-top: 20px;">
         <!-- Aquí se mostrará la info del repartidor cuando sea asignado -->
         <p>Aún no se ha asignado repartidor.</p>
     </div>
@@ -24,6 +59,7 @@
         const orderId = document.getElementById('order-id').innerText.trim();
         const estadoEl = document.getElementById('order-estado');
         const repContainer = document.getElementById('dynamic-repartidor');
+        let lastRepId = null;
 
         async function fetchStatus(){
             try{
@@ -34,20 +70,48 @@
                 estadoEl.innerText = estado;
 
                 const rep = data.repartidor;
-                if(rep){
-                    repContainer.innerHTML = `\n                        <h3>Repartidor asignado</h3>\n                        <p id="rep-nombre">Nombre: ${rep.nombre || rep.name || ''}</p>\n                        <p id="rep-tel">Teléfono: ${rep.telefono || ''}</p>\n                    `;
-                    // Run dedupe guard in case another block with the same repartidor info exists
-                    try{ dedupeRepartidorBlocks(); }catch(_e){}
-                } else {
+                if(rep && rep.id){
+                    // Only update HTML if repartidor changed to avoid image reload flicker
+                    if(lastRepId !== rep.id){
+                        lastRepId = rep.id;
+                        repContainer.innerHTML = `
+                            <h3 style="margin-top: 0;">Repartidor asignado</h3>
+                            <div style="display: grid; grid-template-columns: 150px 1fr; gap: 20px; align-items: start;">
+                                <div style="text-align: center;">
+                                    <img src="/repartidor/photo/${rep.id}?_=${Date.now()}" 
+                                         alt="Foto repartidor" 
+                                         style="width: 120px; height: 120px; object-fit: cover; border-radius: 50%; border: 3px solid #4CAF50;" 
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div style="display: none; width: 120px; height: 120px; border-radius: 50%; background: #e0e0e0; align-items: center; justify-content: center; font-size: 48px; color: #999; border: 3px solid #4CAF50;">
+                                        👤
+                                    </div>
+                                </div>
+                                <div>
+                                    <p id="rep-nombre" style="margin: 5px 0;"><strong>Nombre:</strong> ${rep.nombre || rep.name || ''}</p>
+                                    <p id="rep-tel" style="margin: 5px 0;"><strong>Teléfono:</strong> ${rep.telefono || ''}</p>
+                                    <p style="margin: 5px 0; color: #4CAF50; font-weight: bold;">✓ En camino</p>
+                                </div>
+                            </div>
+                        `;
+                        try{ dedupeRepartidorBlocks(); }catch(_e){}
+                    } else {
+                        // Just update text fields without touching the image
+                        const nombreEl = document.getElementById('rep-nombre');
+                        const telEl = document.getElementById('rep-tel');
+                        if(nombreEl) nombreEl.innerHTML = '<strong>Nombre:</strong> ' + (rep.nombre || rep.name || '');
+                        if(telEl) telEl.innerHTML = '<strong>Teléfono:</strong> ' + (rep.telefono || '');
+                    }
+                } else if(!rep){
                     repContainer.innerHTML = '<p>Aún no se ha asignado repartidor.</p>';
+                    lastRepId = null;
                 }
                 // Si el pedido aún no está completado, seguimos haciendo polling
                 if(estado !== 'completado'){
-                    setTimeout(fetchStatus, 3000);
+                    setTimeout(fetchStatus, 5000);
                 }
             }catch(e){
                 // on error, reintentar más tarde
-                setTimeout(fetchStatus, 5000);
+                setTimeout(fetchStatus, 8000);
             }
         }
 

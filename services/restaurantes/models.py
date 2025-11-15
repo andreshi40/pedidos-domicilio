@@ -16,6 +16,7 @@ class RestauranteORM(Base):
     direccion = Column(String)
     descripcion = Column(String)
     rating = Column(Float, nullable=True)
+    foto_url = Column(String, nullable=True)
 
     menu = relationship("MenuItemORM", back_populates="restaurante", cascade="all, delete-orphan")
 
@@ -26,6 +27,7 @@ class RestauranteORM(Base):
             "direccion": self.direccion,
             "descripcion": self.descripcion,
             "rating": float(self.rating) if self.rating is not None else None,
+            "foto_url": self.foto_url,
         }
 
 

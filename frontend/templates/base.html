@@ -21,7 +21,11 @@
                                     {% if session.get('last_order_id') %}
                                         <a href="{{ url_for('order_status', order_id=session.get('last_order_id')) }}">Ver último pedido</a>
                                     {% endif %}
-                  <!-- Home (microservices health) removed -->
+                                    <!-- Home (microservices health) removed -->
+                                    {# Mostrar enlace al dashboard para repartidores autenticados #}
+                                    {% if session.get('user_role') == 'repartidor' %}
+                                        <a href="{{ url_for('repartidor_dashboard') }}">Mi dashboard</a>
+                                    {% endif %}
                                     <div class="user-dropdown" style="position:relative; display:inline-block;">
                                         <button id="user-create-btn" class="btn-link" type="button" aria-haspopup="true" aria-expanded="false" style="background:none;border:none;cursor:pointer;padding:0;color:inherit;">
                                             Crear usuario ▾

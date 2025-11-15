@@ -4,14 +4,38 @@
 <h2>Resultados de búsqueda</h2>
 
 {% if restaurantes %}
-    <ul>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
     {% for r in restaurantes %}
-        <li>
-            <a href="{{ url_for('restaurant_detail', rest_id=r.get('id') or r.get('_id') or r.get('restaurante_id')) }}">{{ r.get('nombre') or r.get('name') }}</a>
-            — {{ r.get('direccion','') }}
-        </li>
+        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="width: 80px; height: 80px; border-radius: 8px; overflow: hidden; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px solid #FF9800;">
+                {% set rest_id = r.get('id') or r.get('_id') or r.get('restaurante_id') %}
+                {% if r.get('foto_url') %}
+                    <img src="/restaurante/photo/{{ rest_id }}?_={{ range(1, 10000) | random }}" 
+                         alt="Logo" 
+                         style="width: 100%; height: 100%; object-fit: cover;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div style="display: none; font-size: 32px; color: #999;">🍽️</div>
+                {% else %}
+                    <div style="font-size: 32px; color: #999;">🍽️</div>
+                {% endif %}
+            </div>
+            <div>
+                <h3 style="margin: 0 0 5px 0; font-size: 18px;">
+                    <a href="{{ url_for('restaurant_detail', rest_id=rest_id) }}" style="color: #333; text-decoration: none;">
+                        {{ r.get('nombre') or r.get('name') }}
+                    </a>
+                </h3>
+                <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">📍 {{ r.get('direccion','Sin dirección') }}</p>
+                {% if r.get('descripcion') %}
+                    <p style="margin: 0; color: #888; font-size: 13px;">{{ r.get('descripcion') }}</p>
+                {% endif %}
+                {% if r.get('rating') %}
+                    <p style="margin: 5px 0 0 0; color: #FF9800; font-weight: bold;">⭐ {{ "%.1f"|format(r.get('rating')) }}</p>
+                {% endif %}
+            </div>
+        </div>
     {% endfor %}
-    </ul>
+    </div>
 {% else %}
     <p>No hay resultados.</p>
 {% endif %}

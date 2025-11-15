@@ -1,6 +1,7 @@
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+from datetime import datetime
 from typing import List, Optional, Dict
 import uuid
 import os
@@ -27,6 +28,9 @@ class Item(BaseModel):
 class OrderCreate(BaseModel):
     restaurante_id: str
     cliente_email: Optional[str]
+    nombre_cliente: Optional[str] = None
+    apellido_cliente: Optional[str] = None
+    telefono_cliente: Optional[str] = None
     direccion: str
     items: List[Item]
 
@@ -41,6 +45,9 @@ class OrderOut(BaseModel):
     id: str
     restaurante_id: str
     cliente_email: Optional[str]
+    nombre_cliente: Optional[str] = None
+    apellido_cliente: Optional[str] = None
+    telefono_cliente: Optional[str] = None
     direccion: str
     items: List[Dict]
     estado: str
@@ -153,7 +160,17 @@ def create_pedido(payload: OrderCreate):
     # persist order and items
     db = SessionLocal()
     try:
-        order = OrderORM(id=order_id, restaurante_id=payload.restaurante_id, cliente_email=payload.cliente_email, direccion=payload.direccion, estado='creado')
+        order = OrderORM(
+            id=order_id, 
+            restaurante_id=payload.restaurante_id, 
+            cliente_email=payload.cliente_email,
+            nombre_cliente=payload.nombre_cliente,
+            apellido_cliente=payload.apellido_cliente,
+            telefono_cliente=payload.telefono_cliente,
+            direccion=payload.direccion, 
+            estado='creado', 
+            created_at=datetime.utcnow()
+        )
         db.add(order)
         db.flush()
         items_out = []
@@ -188,7 +205,66 @@ def create_pedido(payload: OrderCreate):
         o = db.query(OrderORM).filter(OrderORM.id == order_id).first()
         if o and getattr(o, 'repartidor_id', None):
             repartidor_out = {"id": o.repartidor_id, "nombre": o.repartidor_nombre, "telefono": o.repartidor_telefono}
-        return {"id": order_id, "restaurante_id": payload.restaurante_id, "cliente_email": payload.cliente_email, "direccion": payload.direccion, "items": items_out, "estado": o.estado if o else 'creado', "repartidor": repartidor_out}
+        return {
+            "id": order_id, 
+            "restaurante_id": payload.restaurante_id, 
+            "cliente_email": payload.cliente_email,
+            "nombre_cliente": payload.nombre_cliente,
+            "apellido_cliente": payload.apellido_cliente,
+            "telefono_cliente": payload.telefono_cliente,
+            "direccion": payload.direccion, 
+            "items": items_out, 
+            "estado": o.estado if o else 'creado', 
+            "repartidor": repartidor_out
+        }
+    finally:
+        db.close()
+
+
+@app.get('/api/v1/repartidor/{rep_id}/orders')
+def orders_for_repartidor(rep_id: str, year: int = None, month: int = None):
+    """Return orders assigned to a repartidor filtered by year/month.
+
+    Returns list of orders (id, estado, created_at, total) and aggregates:
+    - current_order (if any non-completed order exists, the most recent)
+    - gain_current: 10% of current order total
+    - gain_others: sum of 10% of other orders in the month
+    - orders: list of orders for the month
+    """
+    db = SessionLocal()
+    try:
+        q = db.query(OrderORM).filter(OrderORM.repartidor_id == rep_id)
+        # filter by month/year if provided
+        if year and month:
+            start = datetime(year, month, 1)
+            # compute first day of next month
+            if month == 12:
+                end = datetime(year + 1, 1, 1)
+            else:
+                end = datetime(year, month + 1, 1)
+            q = q.filter(OrderORM.created_at >= start, OrderORM.created_at < end)
+
+        rows = q.order_by(OrderORM.created_at.desc()).all()
+        orders = []
+        total_month_gain = 0.0
+        current_order = None
+        for o in rows:
+            total = 0.0
+            items_list = []
+            for it in o.items:
+                total += float(it.precio) * int(it.cantidad)
+                items_list.append({"nombre": it.nombre, "precio": float(it.precio), "cantidad": it.cantidad})
+            orders.append({"id": o.id, "estado": o.estado, "created_at": o.created_at.isoformat(), "total": total, "items": items_list})
+            # accumulate gain as 10% of total
+            total_month_gain += total * 0.10
+            # pick the most recent non-completed order as current
+            if not current_order and o.estado != 'completado':
+                current_order = {"id": o.id, "estado": o.estado, "created_at": o.created_at.isoformat(), "total": total, "items": items_list}
+
+        gain_current = current_order['total'] * 0.10 if current_order else 0.0
+        # total of other orders = total_month_gain - gain_current
+        gain_others = round(max(0.0, total_month_gain - (gain_current)), 2)
+        return {"orders": orders, "current_order": current_order, "gain_current": round(gain_current, 2), "gain_others": gain_others}
     finally:
         db.close()
 
@@ -280,7 +356,18 @@ def get_pedido(order_id: str):
                 'nombre': getattr(o, 'repartidor_nombre', None),
                 'telefono': getattr(o, 'repartidor_telefono', None)
             }
-        return {"id": o.id, "restaurante_id": o.restaurante_id, "cliente_email": o.cliente_email, "direccion": o.direccion, "items": items, "estado": o.estado, "repartidor": repartidor}
+        return {
+            "id": o.id, 
+            "restaurante_id": o.restaurante_id, 
+            "cliente_email": o.cliente_email,
+            "nombre_cliente": getattr(o, 'nombre_cliente', None),
+            "apellido_cliente": getattr(o, 'apellido_cliente', None),
+            "telefono_cliente": getattr(o, 'telefono_cliente', None),
+            "direccion": o.direccion, 
+            "items": items, 
+            "estado": o.estado, 
+            "repartidor": repartidor
+        }
     finally:
         db.close()
 

@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from typing import Optional, List
 from sqlalchemy.orm import Session
 import database_sql
 from models import RestauranteORM, MenuItemORM
 import time
+import os
+import shutil
 
 app = FastAPI()
 
@@ -164,6 +167,112 @@ def release_menu_item(rest_id: str, item_id: str, cantidad: int = 1):
         db.close()
 
 
+@app.delete("/api/v1/restaurantes/{rest_id}/menu/{item_id}")
+def delete_menu_item(rest_id: str, item_id: str):
+    """Delete a menu item from a restaurant."""
+    db = database_sql.SessionLocal()
+    try:
+        item = db.query(MenuItemORM).filter(MenuItemORM.id == item_id, MenuItemORM.restaurante_id == rest_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item no encontrado")
+        db.delete(item)
+        db.commit()
+        return {"message": "Item eliminado correctamente", "id": item_id}
+    finally:
+        db.close()
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.get("/")
+def read_root():
+    return {"message": "Servicio de restaurantes funcionando."}
+
+
+@app.post("/api/v1/restaurantes/{rest_id}/photo")
+def upload_restaurante_photo(rest_id: str, file: UploadFile = File(...)):
+    """Upload a photo/logo for a restaurant and store its URL in the DB.
+    
+    The file is saved under ./data/restaurante_photos/<rest_id>__<filename>
+    and the DB `foto_url` column will store the relative path.
+    Removes any existing photos for this restaurant before uploading the new one.
+    """
+    db = database_sql.SessionLocal()
+    try:
+        r = db.query(RestauranteORM).filter(RestauranteORM.id == rest_id).first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Restaurante no encontrado")
+        
+        # ensure data dir exists
+        data_dir = os.path.join(os.getcwd(), 'data', 'restaurante_photos')
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # Delete old photos for this restaurant
+        try:
+            for fname in os.listdir(data_dir):
+                if fname.startswith(f"{rest_id}__"):
+                    old_file = os.path.join(data_dir, fname)
+                    if os.path.isfile(old_file):
+                        os.remove(old_file)
+        except Exception:
+            pass  # Continue even if deletion fails
+        
+        # Save new photo with consistent naming
+        safe_name = os.path.basename(file.filename)
+        # Use timestamp to ensure uniqueness and avoid browser cache issues
+        import time
+        timestamp = int(time.time() * 1000)
+        file_ext = os.path.splitext(safe_name)[1] if '.' in safe_name else '.jpg'
+        dest_path = os.path.join(data_dir, f"{rest_id}__{timestamp}{file_ext}")
+        
+        with open(dest_path, 'wb') as out_f:
+            shutil.copyfileobj(file.file, out_f)
+        
+        # store filename (we will serve via the GET /photo endpoint)
+        filename = f"{rest_id}__{timestamp}{file_ext}"
+        r.foto_url = filename
+        db.add(r)
+        db.commit()
+        
+        return {"foto_url": filename}
+    finally:
+        try:
+            file.file.close()
+        except Exception:
+            pass
+        db.close()
+
+
+@app.get("/api/v1/restaurantes/{rest_id}/photo")
+def get_restaurante_photo(rest_id: str):
+    """Serve the uploaded photo for a restaurant (if present).
+    
+    The uploaded file is looked up in ./data/restaurante_photos using the
+    foto_url from the database for the specific restaurant.
+    """
+    db = database_sql.SessionLocal()
+    try:
+        # Get the restaurant and its foto_url from DB
+        r = db.query(RestauranteORM).filter(RestauranteORM.id == rest_id).first()
+        if not r or not r.foto_url:
+            raise HTTPException(status_code=404, detail="Foto no encontrada")
+        
+        data_dir = os.path.join(os.getcwd(), 'data', 'restaurante_photos')
+        full_path = os.path.join(data_dir, r.foto_url)
+        
+        if not os.path.exists(full_path) or not os.path.isfile(full_path):
+            # If file doesn't exist, try to find any file with the rest_id prefix (fallback)
+            if os.path.exists(data_dir):
+                for fname in os.listdir(data_dir):
+                    if fname.startswith(f"{rest_id}__"):
+                        full_path = os.path.join(data_dir, fname)
+                        if os.path.isfile(full_path):
+                            return FileResponse(full_path)
+            raise HTTPException(status_code=404, detail="Foto no encontrada")
+        
+        return FileResponse(full_path)
+    finally:
+        db.close()

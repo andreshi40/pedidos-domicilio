@@ -122,7 +122,7 @@ async def forward_get(service_name: str, path: str, request: Request):
     try:
         # print instead of logger to ensure messages appear in container stdout
         print(f"[GATEWAY] Forwarding GET to {service_url} query={dict(request.query_params)} headers={list(headers.keys())}")
-        response = requests.get(service_url, params=request.query_params, headers=headers)
+        response = requests.get(service_url, params=request.query_params, headers=headers, timeout=10)
         # Forward the downstream status code and body transparently.
         try:
             print(f"[GATEWAY] Downstream {service_name} responded {response.status_code}")
@@ -172,7 +172,7 @@ async def forward_post(service_name: str, path: str, request: Request):
         except Exception:
             body = None
         print(f"[GATEWAY] Forwarding POST to {service_url} body_keys={list(body.keys()) if isinstance(body, dict) else 'raw'} headers={list(headers.keys())}")
-        response = requests.post(service_url, json=body, headers=headers)
+        response = requests.post(service_url, json=body, headers=headers, timeout=10)
         # Forward downstream status and body transparently.
         try:
             print(f"[GATEWAY] Downstream {service_name} responded {response.status_code}")
@@ -183,7 +183,91 @@ async def forward_post(service_name: str, path: str, request: Request):
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Error forwarding request to {service_name}: {e}")
 
-# TODO: Agrega más rutas para otros métodos HTTP (PUT, DELETE, etc.).
+
+@router.put("/{service_name}/{path:path}")
+async def forward_put(service_name: str, path: str, request: Request):
+    if service_name not in SERVICES:
+        raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found.")
+    
+    base = SERVICES[service_name].rstrip('/')
+    if service_name == "auth":
+        if path:
+            service_url = f"{base}/{path}"
+        else:
+            service_url = f"{base}/"
+    else:
+        svc_prefix = f"/api/v1/{service_name}"
+        if path:
+            service_url = f"{base}{svc_prefix}/{path}"
+        else:
+            service_url = f"{base}{svc_prefix}"
+
+    headers = {k: v for k, v in request.headers.items()}
+    if not _is_auth_exempt(service_name, path):
+        user = _verify_token_from_request(request)
+        headers["X-User-Id"] = str(user.get("sub"))
+        if user.get("email"):
+            headers["X-User-Email"] = str(user.get("email"))
+        if user.get("role"):
+            headers["X-User-Role"] = str(user.get("role"))
+
+    try:
+        body = None
+        try:
+            body = await request.json()
+        except Exception:
+            body = None
+        print(f"[GATEWAY] Forwarding PUT to {service_url} body_keys={list(body.keys()) if isinstance(body, dict) else 'raw'} headers={list(headers.keys())}")
+        response = requests.put(service_url, json=body, headers=headers, timeout=10)
+        try:
+            print(f"[GATEWAY] Downstream {service_name} responded {response.status_code}")
+            return JSONResponse(status_code=response.status_code, content=response.json())
+        except ValueError:
+            print(f"[GATEWAY] Downstream returned non-json body: {response.text[:200]}")
+            return JSONResponse(status_code=response.status_code, content={"detail": response.text})
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Error forwarding request to {service_name}: {e}")
+
+
+@router.delete("/{service_name}/{path:path}")
+async def forward_delete(service_name: str, path: str, request: Request):
+    if service_name not in SERVICES:
+        raise HTTPException(status_code=404, detail=f"Service '{service_name}' not found.")
+    
+    base = SERVICES[service_name].rstrip('/')
+    if service_name == "auth":
+        if path:
+            service_url = f"{base}/{path}"
+        else:
+            service_url = f"{base}/"
+    else:
+        svc_prefix = f"/api/v1/{service_name}"
+        if path:
+            service_url = f"{base}{svc_prefix}/{path}"
+        else:
+            service_url = f"{base}{svc_prefix}"
+
+    headers = {k: v for k, v in request.headers.items()}
+    if not _is_auth_exempt(service_name, path):
+        user = _verify_token_from_request(request)
+        headers["X-User-Id"] = str(user.get("sub"))
+        if user.get("email"):
+            headers["X-User-Email"] = str(user.get("email"))
+        if user.get("role"):
+            headers["X-User-Role"] = str(user.get("role"))
+
+    try:
+        print(f"[GATEWAY] Forwarding DELETE to {service_url} headers={list(headers.keys())}")
+        response = requests.delete(service_url, headers=headers, timeout=10)
+        try:
+            print(f"[GATEWAY] Downstream {service_name} responded {response.status_code}")
+            return JSONResponse(status_code=response.status_code, content=response.json())
+        except ValueError:
+            print(f"[GATEWAY] Downstream returned non-json body: {response.text[:200]}")
+            return JSONResponse(status_code=response.status_code, content={"detail": response.text})
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Error forwarding request to {service_name}: {e}")
+
 
 # Incluye el router en la aplicación principal.
 app.include_router(router)
