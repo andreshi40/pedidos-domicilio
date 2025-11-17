@@ -18,7 +18,7 @@ Reglas principales
 - Pull Requests (PR):
   - Cada PR debe ser pequeño y atómico (ideal < 300 líneas).
   - Incluir descripción: Qué cambia, por qué, cómo probarlo y criterios de aceptación.
-  - Enlazar la PR a una issue o card del tablero si aplica.
+  - Enlazar la PR a una issue si aplica.
   - Ejecutar CI y esperar resultados antes de merge.
 
 - Commits:
@@ -39,11 +39,10 @@ Buenas prácticas y recomendaciones
 - No mezcles cambios conceptuales diferentes en una misma PR.
 - Mantén un CHANGELOG.md con entradas para releases importantes.
 
-Tablero y visibilidad
----------------------
-- Usa un tablero Kanban ligero (GitHub Projects, Trello):
-  - Columnas sugeridas: Backlog / Ready / In Progress / Review / Done
-  - Limita WIP a 2–3 items por contribuidor.
+Visibilidad
+-----------
+- Mantén visibilidad con issues claras y PRs pequeñas.
+- Usa etiquetas y milestones para priorizar y agrupar trabajo.
 
 Plantillas y automatización
 ---------------------------
