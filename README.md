@@ -16,6 +16,25 @@
 * Contenerizar aplicaciones con Docker.
 * Orquestar la infraestructura con Docker Compose.
 
+## Documentación del Proyecto
+
+### 📋 Planificación y Metodología
+Este proyecto sigue una **metodología incremental** de desarrollo. Consulta los siguientes documentos para entender el proceso:
+
+- **[Etapas Incrementales (Completo)](./docs/ETAPAS_INCREMENTALES.md)** - Definición detallada de las 7 etapas de desarrollo con entregables, criterios de aceptación y cronograma.
+- **[Etapas Incrementales (Resumen)](./docs/ETAPAS_RESUMEN.md)** - Vista rápida y checklist de las etapas de desarrollo.
+- **[Flujo de Trabajo Incremental](./docs/INCREMENTAL.md)** - Reglas de branching, PRs, commits y revisiones.
+
+### 🏗️ Arquitectura y Diseño
+- **[Arquitectura del Sistema](./docs/architecture.md)** - Descripción de la arquitectura de microservicios y tecnologías.
+- **[Caso de Uso Principal](./docs/use-case.md)** - Flujo detallado de creación de pedido y asignación.
+
+### 📊 Diagramas Visuales
+- **[Diagrama de Etapas (Gantt)](./docs/etapas-incrementales.mmd)** - Timeline de desarrollo en formato Mermaid.
+- **[Diagrama de Dependencias](./docs/etapas-dependencias.mmd)** - Relaciones entre etapas en formato Mermaid.
+
+---
+
 ## Proceso de Desarrollo
 
 Sigue estos pasos para comenzar tu proyecto:

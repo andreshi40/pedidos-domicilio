@@ -1,0 +1,30 @@
+%% Diagrama de Dependencias entre Etapas
+%% Muestra qué etapas dependen de cuáles otras
+
+graph TD
+    E0[Etapa 0:<br/>Infraestructura Base<br/>Docker + Frontend + Gateway]
+    E1[Etapa 1:<br/>Autenticación<br/>JWT + Login/Registro]
+    E2[Etapa 2:<br/>Restaurantes<br/>CRUD + Menú + Stock]
+    E3[Etapa 3:<br/>Repartidores<br/>Gestión + Asignación]
+    E4[Etapa 4:<br/>Pedidos<br/>Flujo Completo E2E]
+    E5[Etapa 5:<br/>Mejoras UX<br/>Ratings + Dashboard]
+    E6[Etapa 6:<br/>Producción<br/>Optimización + Seguridad]
+    
+    E0 --> E1
+    E1 --> E2
+    E1 --> E3
+    E2 --> E4
+    E3 --> E4
+    E4 --> E5
+    E5 --> E6
+    
+    style E0 fill:#e1f5ff,stroke:#0066cc
+    style E1 fill:#fff4e1,stroke:#cc8800
+    style E2 fill:#e1ffe1,stroke:#00cc00
+    style E3 fill:#ffe1f5,stroke:#cc0088
+    style E4 fill:#ffe1e1,stroke:#cc0000
+    style E5 fill:#f5e1ff,stroke:#8800cc
+    style E6 fill:#e1e1e1,stroke:#666666
+    
+    classDef milestone fill:#ffeb3b,stroke:#f57c00,stroke-width:3px
+    class E0,E4,E6 milestone

@@ -1,0 +1,50 @@
+%% Diagrama de Etapas Incrementales - Proyecto Pedidos-Domicilio
+%% Este diagrama muestra la secuencia de desarrollo incremental
+
+gantt
+    title Etapas Incrementales - Pedidos Domicilio
+    dateFormat YYYY-MM-DD
+    axisFormat %W
+    
+    section Etapa 0: Base
+    Estructura del proyecto       :e0a, 2024-01-01, 1w
+    Infraestructura Docker        :e0b, after e0a, 1w
+    Frontend básico               :e0c, after e0a, 1w
+    API Gateway esqueleto         :e0d, after e0a, 1w
+    
+    section Etapa 1: Auth
+    Servicio Autenticación        :e1a, after e0d, 1w
+    Integración con Gateway       :e1b, after e1a, 1w
+    Frontend Auth                 :e1c, after e1a, 1w
+    
+    section Etapa 2: Restaurantes
+    Microservicio Restaurantes    :e2a, after e1c, 2w
+    CRUD Menú                     :e2b, after e2a, 1w
+    Frontend Restaurantes         :e2c, after e2a, 2w
+    Sistema Stock                 :e2d, after e2b, 1w
+    
+    section Etapa 3: Repartidores
+    Microservicio Repartidores    :e3a, after e2d, 1w
+    Sistema Asignación            :e3b, after e3a, 1w
+    Frontend Repartidores         :e3c, after e3a, 1w
+    
+    section Etapa 4: Pedidos
+    Microservicio Pedidos         :e4a, after e3c, 2w
+    Lógica Creación Pedidos       :e4b, after e4a, 1w
+    Background Assigner           :e4c, after e4b, 1w
+    Frontend Pedidos              :e4d, after e4a, 2w
+    Tests Integración E2E         :e4e, after e4d, 1w
+    
+    section Etapa 5: Mejoras UX
+    Mejoras Frontend              :e5a, after e4e, 2w
+    Sistema Ratings               :e5b, after e5a, 1w
+    Panel Admin Mejorado          :e5c, after e5a, 1w
+    Notificaciones                :e5d, after e5b, 1w
+    
+    section Etapa 6: Producción
+    Optimización Performance      :e6a, after e5d, 1w
+    Seguridad                     :e6b, after e6a, 1w
+    Logging y Monitoreo           :e6c, after e6a, 1w
+    Testing Avanzado              :e6d, after e6b, 1w
+    CI/CD Pipeline                :e6e, after e6c, 1w
+    Documentación Final           :e6f, after e6d, 1w
