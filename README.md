@@ -70,3 +70,46 @@ docker-compose up --build
 ```
 
 Esto construirá las imágenes y ejecutará todos los contenedores. Podrás acceder al frontend en `http://localhost:5000` y al API Gateway en `http://localhost:8000`.
+
+---
+
+## Calidad de Código y CI/CD
+
+### Pre-commit Hooks
+
+Este repositorio usa pre-commit para validar y formatear código automáticamente antes de cada commit.
+
+Instalación (una vez):
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
+Ejecutar sobre todos los archivos (opcional, antes de un commit grande):
+
+```bash
+pre-commit run --all-files
+```
+
+Hooks configurados:
+- trailing-whitespace, end-of-file-fixer, check-yaml, check-added-large-files
+- ruff (linter, con auto-fix) y ruff-format (formateador)
+- pytest (ejecuta tests en cada commit)
+
+Nota: se agregó un test de humo en `tests/test_smoke.py` para evitar errores cuando aún no hay tests reales.
+
+### GitHub Actions
+
+Se ejecuta el workflow `.github/workflows/checks.yml` al publicar tags que comienzan con `v` (por ejemplo: `v1.0.0`). El flujo realiza:
+- Linter (ruff)
+- Verificación de formato (ruff format)
+- Tests (pytest)
+- Todos los hooks de pre-commit
+
+Para crear una versión:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```

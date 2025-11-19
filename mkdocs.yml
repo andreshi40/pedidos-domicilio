@@ -1,0 +1,47 @@
+site_name: Pedidos Domicilio
+site_description: Plataforma de pedidos a domicilio basada en microservicios.
+site_url: https://github.com/andreshi40/pedidos-domicilio
+repo_name: andreshi40/pedidos-domicilio
+repo_url: https://github.com/andreshi40/pedidos-domicilio
+edit_uri: ''
+
+nav:
+  - Inicio: index.md
+  - Metodología:
+      - Flujo Incremental: INCREMENTAL.md
+      - Etapas Incrementales: ETAPAS_INCREMENTALES.md
+      - Estado del Arte: estado-del-arte.md
+  - Arquitectura:
+      - Descripción: architecture.md
+      - Diagrama Mermaid: architecture.mmd
+      - ASCII Layout: architecture-ascii.txt
+      - Caso de Uso (Pedidos): use-case.md
+
+theme:
+  name: material
+  language: es
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/andreshi40/pedidos-domicilio
+      name: Repositorio en GitHub
+
+copyright: "© 2025 Pedidos Domicilio"

@@ -1,0 +1,38 @@
+name: Pre-commit Checks on Tags
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest ruff pre-commit
+
+      - name: Run Ruff linter
+        run: |
+          ruff check --output-format=concise .
+
+      - name: Run Ruff formatter
+        run: |
+          ruff format --check .
+
+      - name: Run tests with pytest
+        run: |
+          pytest -v
+
+      - name: Run all pre-commit hooks
+        run: |
+          pre-commit run --all-files
