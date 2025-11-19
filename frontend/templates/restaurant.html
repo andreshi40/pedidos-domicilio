@@ -5,8 +5,8 @@
     <div style="width: 120px; height: 120px; border-radius: 10px; overflow: hidden; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 3px solid #FF9800; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
         {% set rest_id = restaurante.get('id') or restaurante.get('_id') or restaurante.get('restaurante_id') %}
         {% if restaurante.get('foto_url') %}
-            <img src="/restaurante/photo/{{ rest_id }}?_={{ range(1, 10000) | random }}" 
-                 alt="Logo del restaurante" 
+            <img src="/restaurante/photo/{{ rest_id }}?_={{ range(1, 10000) | random }}"
+                 alt="Logo del restaurante"
                  style="width: 100%; height: 100%; object-fit: cover;"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
             <div style="display: none; font-size: 48px; color: #999;">🍽️</div>
@@ -186,12 +186,12 @@
         const apellidoCliente = fd.get('apellido_cliente');
         const telefonoCliente = fd.get('telefono_cliente');
         const payload = {
-            restaurante_id: "{{ restaurante.get('id') }}", 
-            cliente_email: "{{ session.get('user_email') or '' }}", 
+            restaurante_id: "{{ restaurante.get('id') }}",
+            cliente_email: "{{ session.get('user_email') or '' }}",
             nombre_cliente: nombreCliente,
             apellido_cliente: apellidoCliente,
             telefono_cliente: telefonoCliente,
-            direccion, 
+            direccion,
             items
         };
 
@@ -414,7 +414,7 @@
         setTimeout(fetchStatus, 500);
     })();
     </script>
-    
+
     <script>
     // Dedupe helper used across the restaurant page scripts: removes duplicated blocks that show the same
     // repartidor information (best-effort). This complements server-side fix to avoid duplicates.
@@ -438,6 +438,6 @@
     // run once after load to clean any pre-existing duplicate
     setTimeout(function(){ try{ dedupeRepartidorBlocks(); }catch(e){} }, 700);
     </script>
-        
+
     {% endblock %}
 {% endif %}

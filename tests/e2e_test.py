@@ -11,6 +11,7 @@ Flow:
 
 Requirements: Python 3, requests
 """
+
 import requests
 import re
 import sys
@@ -32,13 +33,21 @@ def main():
     password = "password123"
 
     print("1) Registering user", email)
-    r = requests.post(f"{GATEWAY}/api/v1/auth/register", json={"email": email, "password": password, "role": "cliente"}, timeout=5)
+    r = requests.post(
+        f"{GATEWAY}/api/v1/auth/register",
+        json={"email": email, "password": password, "role": "cliente"},
+        timeout=5,
+    )
     if r.status_code not in (200, 201):
         fail(f"register failed: {r.status_code} {r.text}")
     print("  registered")
 
     print("2) Logging in")
-    r = requests.post(f"{GATEWAY}/api/v1/auth/login", json={"email": email, "password": password}, timeout=5)
+    r = requests.post(
+        f"{GATEWAY}/api/v1/auth/login",
+        json={"email": email, "password": password},
+        timeout=5,
+    )
     if r.status_code != 200:
         fail(f"login failed: {r.status_code} {r.text}")
     token = r.json().get("access_token")
@@ -62,7 +71,7 @@ def main():
     if not m:
         fail("could not find restaurant link in frontend HTML")
     rest_path = m.group(1)
-    rest_id = rest_path.split('/')[-1]
+    rest_id = rest_path.split("/")[-1]
     print(f"  using restaurant: {rest_id}")
 
     print("4) Fetch restaurant detail page (frontend)")
@@ -87,7 +96,7 @@ def main():
         fail("menu is empty")
     item = menu[0]
     # item may be a dict-like object
-    item_id = item.get('id') if isinstance(item, dict) else item
+    item_id = item.get("id") if isinstance(item, dict) else item
     print(f"  menu has {len(menu)} items, picking {item_id}")
 
     print("6) Create pedido via gateway (authenticated)")
@@ -95,9 +104,14 @@ def main():
         "restaurante_id": rest_id,
         "cliente_email": email,
         "direccion": "Calle de prueba 1",
-        "items": [{"item_id": item.get('id'), "cantidad": 1}],
+        "items": [{"item_id": item.get("id"), "cantidad": 1}],
     }
-    r = requests.post(f"{GATEWAY}/api/v1/pedidos/api/v1/pedidos", json=payload, headers=headers, timeout=5)
+    r = requests.post(
+        f"{GATEWAY}/api/v1/pedidos/api/v1/pedidos",
+        json=payload,
+        headers=headers,
+        timeout=5,
+    )
     if r.status_code not in (200, 201):
         fail(f"create pedido failed: {r.status_code} {r.text}")
     order = r.json()
@@ -107,7 +121,11 @@ def main():
     print(f"  created order {order_id}")
 
     print("7) Fetch the pedido and verify repartidor")
-    r = requests.get(f"{GATEWAY}/api/v1/pedidos/api/v1/pedidos/{order_id}", headers=headers, timeout=5)
+    r = requests.get(
+        f"{GATEWAY}/api/v1/pedidos/api/v1/pedidos/{order_id}",
+        headers=headers,
+        timeout=5,
+    )
     if r.status_code != 200:
         fail(f"get pedido failed: {r.status_code} {r.text}")
     data = r.json()
@@ -118,7 +136,7 @@ def main():
     print("E2E test passed ✅")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except Exception as e:

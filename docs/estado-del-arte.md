@@ -117,10 +117,10 @@ Este análisis no enumera tecnologías; construye una narrativa que explica cóm
 
 ## 10. Roadmap mínimo para alcanzar el “estado del arte” completo
 
-1) Migración IO crítico a async (`httpx`, `async def`, uvicorn/uvloop).  
-2) Pre-commit + CI (lint, tests, build).  
-3) Suite Pytest (unit/integration/E2E) con coverage.  
-4) MkDocs + GitHub Pages (docs vivas).  
+1) Migración IO crítico a async (`httpx`, `async def`, uvicorn/uvloop).
+2) Pre-commit + CI (lint, tests, build).
+3) Suite Pytest (unit/integration/E2E) con coverage.
+4) MkDocs + GitHub Pages (docs vivas).
 5) Observabilidad: logs estructurados, métricas (Prometheus) y tracing (OTel) en `pedidos`.
 
 ---

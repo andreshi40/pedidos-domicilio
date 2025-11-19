@@ -47,7 +47,7 @@ services:
 
   # --- Plantillas de Microservicios ---
   # TODO: Copiar y modificar "service1" para cada servicio según el tema seleccionado
-  
+
   # Microservicio de Nombre_del_microservicio
   restaurantes-service:
      build: ./services/restaurantes

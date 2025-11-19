@@ -60,7 +60,7 @@ function handleSubmit(event) {
         event.preventDefault();
         return false;
     }
-    
+
     isSubmitting = true;
     // Disable submit button
     const submitBtn = event.target.querySelector('button[type="submit"]');
@@ -68,7 +68,7 @@ function handleSubmit(event) {
         submitBtn.disabled = true;
         submitBtn.textContent = '⏳ Guardando...';
     }
-    
+
     return true;
 }
 
@@ -103,7 +103,7 @@ function addMenuItem() {
 function removeMenuItem(button) {
     const container = document.getElementById('menu-items-container');
     const rows = container.getElementsByClassName('menu-item-row');
-    
+
     // Don't allow removing if only one row exists
     if (rows.length > 1) {
         button.closest('.menu-item-row').remove();

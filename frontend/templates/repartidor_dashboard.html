@@ -9,17 +9,17 @@
   <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; text-align: center;">
     <h3 style="margin-top: 0; font-size: 16px;">Mi Perfil</h3>
     {% if session.get('user_id') %}
-      <img id="repartidor-photo" 
-           src="/repartidor/photo/{{ session.get('user_id') }}?_={{ range(1, 10000) | random }}" 
-           alt="Mi foto" 
-           style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%; border: 3px solid #4CAF50; margin-bottom: 10px;" 
+      <img id="repartidor-photo"
+           src="/repartidor/photo/{{ session.get('user_id') }}?_={{ range(1, 10000) | random }}"
+           alt="Mi foto"
+           style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%; border: 3px solid #4CAF50; margin-bottom: 10px;"
            onerror="this.style.display='none'; document.getElementById('photo-placeholder').style.display='flex';">
-      <div id="photo-placeholder" 
+      <div id="photo-placeholder"
            style="display: none; width: 150px; height: 150px; border-radius: 50%; background: #e0e0e0; align-items: center; justify-content: center; font-size: 64px; color: #999; border: 3px solid #4CAF50; margin: 0 auto 10px;">
         👤
       </div>
     {% endif %}
-    
+
     {# Información del repartidor #}
     {% if repartidor %}
       <div style="margin-top: 10px; text-align: left; font-size: 13px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
@@ -34,13 +34,13 @@
         {% endif %}
       </div>
     {% endif %}
-    
+
     {# Siempre mostrar botón de actualizar perfil #}
     <a class="btn" href="{{ url_for('repartidor_setup') }}" style="font-size: 12px; padding: 8px 12px; margin-top: 10px; display: block;">
       {% if profile_complete %}✏️ Editar perfil{% else %}📝 Completar perfil{% endif %}
     </a>
   </div>
-  
+
   <!-- Columna derecha: Información del pedido actual -->
   <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px;">
     {% if current_order %}
@@ -48,17 +48,17 @@
       <div style="background: #f9f9f9; padding: 12px; border-radius: 4px; margin-bottom: 12px;">
         <p style="margin: 5px 0;"><strong>ID:</strong> {{ current_order.id }}</p>
         <p style="margin: 5px 0;"><strong>Estado:</strong> <span style="color: #ff9800; font-weight: bold;">{{ current_order.estado }}</span></p>
-        
+
         {# Calcular total sumando items #}
         {% set total_pedido = namespace(value=0) %}
         {% for item in current_order['items'] %}
           {% set total_pedido.value = total_pedido.value + (item.cantidad * item.precio) %}
         {% endfor %}
-        
+
         <p style="margin: 5px 0;"><strong>Valor total del pedido:</strong> <span style="font-size: 18px; color: #333;">${{ "%.2f"|format(total_pedido.value) }}</span></p>
         <p style="margin: 5px 0;"><strong>Tu ganancia (10%):</strong> <span style="color: #4CAF50; font-weight: bold; font-size: 18px;">${{ "%.2f"|format(total_pedido.value * 0.10) }}</span></p>
       </div>
-      
+
       <details style="margin-bottom: 12px;">
         <summary style="cursor: pointer; padding: 8px; background: #f0f0f0; border-radius: 4px;">Ver productos del pedido ({{ current_order['items']|length }} {% if current_order['items']|length == 1 %}producto{% else %}productos{% endif %})</summary>
         <ul style="margin-top: 8px; padding-left: 20px;">
@@ -73,7 +73,7 @@
           <strong>Total: ${{ "%.2f"|format(total_pedido.value) }}</strong>
         </div>
       </details>
-      
+
       <form method="POST" action="{{ url_for('completar_pedido_repartidor', order_id=current_order.id) }}">
         <button type="submit" class="btn" style="background:#28a745; color:white; width: 100%;">✓ Liberar pedido entregado</button>
       </form>
@@ -108,7 +108,7 @@
   {% for item in o['items'] %}
     {% set total_orden.value = total_orden.value + (item.cantidad * item.precio) %}
   {% endfor %}
-  
+
   <li style="margin-bottom: 15px; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; background: #fafafa;">
     <div style="margin-bottom: 8px;">
       <strong>📅 {{ o.created_at }}</strong>

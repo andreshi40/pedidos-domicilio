@@ -10,6 +10,7 @@ client = AsyncIOMotorClient(DATABASE_URL)
 # Selecciona la base de datos
 db = client.get_database()
 
+
 # Función para obtener la colección
 def get_collection(collection_name):
     return db[collection_name]

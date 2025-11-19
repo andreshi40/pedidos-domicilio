@@ -1,7 +1,7 @@
 Arquitectura (ASCII fallback)
 
   [Browser] --> [Frontend (Flask :5000)] --> [API Gateway (FastAPI :8000)]
-                                               /      |        \ 
+                                               /      |        \
                                               /       |         \
                                [Auth (FastAPI)] [Restaurantes (FastAPI)] [Pedidos (FastAPI)] [Repartidores (FastAPI)]
                                   |                 |                      |                      |

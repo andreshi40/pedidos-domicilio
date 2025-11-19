@@ -20,8 +20,8 @@ def _find_rest_with_item(min_quantity: int = 1):
 
     restos = r.json() or []
     # el endpoint puede devolver dict o lista dependiendo de implementación
-    if isinstance(restos, dict) and 'restaurantes' in restos:
-        restos = restos['restaurantes']
+    if isinstance(restos, dict) and "restaurantes" in restos:
+        restos = restos["restaurantes"]
 
     for rest in restos:
         try:
@@ -30,12 +30,12 @@ def _find_rest_with_item(min_quantity: int = 1):
                 continue
             menu = m.json()
             # menu puede venir en {"menu": [...]} o directamente una lista
-            if isinstance(menu, dict) and 'menu' in menu:
-                items = menu['menu']
+            if isinstance(menu, dict) and "menu" in menu:
+                items = menu["menu"]
             else:
                 items = menu
             for it in items:
-                if it.get('cantidad', 0) >= min_quantity:
+                if it.get("cantidad", 0) >= min_quantity:
                     return rest, it
         except Exception:
             continue
@@ -63,16 +63,18 @@ def test_create_order_and_assigns_repartidor():
         pass
 
     payload = {
-        "restaurante_id": rest.get('id'),
+        "restaurante_id": rest.get("id"),
         "cliente_email": "test@example.com",
         "direccion": "Calle Test 123",
-        "items": [{"item_id": item.get('id'), "cantidad": 1}]
+        "items": [{"item_id": item.get("id"), "cantidad": 1}],
     }
 
     resp = requests.post(f"{BASE_GW}/pedidos", json=payload, timeout=5)
-    assert resp.status_code in (200, 201), f"Expected 200/201 creating order, got {resp.status_code} - {resp.text}"
+    assert resp.status_code in (200, 201), (
+        f"Expected 200/201 creating order, got {resp.status_code} - {resp.text}"
+    )
     data = resp.json()
-    order_id = data.get('id')
+    order_id = data.get("id")
     assert order_id, "Respuesta no incluyó id de pedido"
 
     # Esperar a que el pedido sea asignado por el flujo inmediato o por el background assigner
@@ -81,7 +83,7 @@ def test_create_order_and_assigns_repartidor():
         r = requests.get(f"{BASE_GW}/pedidos/{order_id}", timeout=3)
         if r.status_code == 200:
             j = r.json()
-            if j.get('estado') == 'asignado' and j.get('repartidor'):
+            if j.get("estado") == "asignado" and j.get("repartidor"):
                 assigned = True
                 break
         time.sleep(1)

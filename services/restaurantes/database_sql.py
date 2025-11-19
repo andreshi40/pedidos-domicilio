@@ -6,7 +6,9 @@ import os
 from models import Base
 
 # Obtiene la URL de la base de datos de las variables de entorno.
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@restaurantes-db:5432/service1_db")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql://user:password@restaurantes-db:5432/service1_db"
+)
 
 # Crea el motor y la sesión
 engine = create_engine(DATABASE_URL)

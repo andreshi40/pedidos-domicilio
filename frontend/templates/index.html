@@ -13,7 +13,7 @@
     <!-- Buscador de restaurantes -->
     <div style="margin-top: 30px;">
         <h2>Buscar restaurantes</h2>
-        
+
         <form action="{{ url_for('index') }}" method="get" class="search-form">
             <input type="text" name="q" placeholder="Buscar por nombre de restaurante" value="{{ q or '' }}">
             <button type="submit">Buscar</button>
@@ -26,8 +26,8 @@
                     <div style="width: 80px; height: 80px; border-radius: 8px; overflow: hidden; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border: 2px solid #FF9800;">
                         {% set rest_id = r.get('id') or r.get('_id') or r.get('restaurante_id') %}
                         {% if r.get('foto_url') %}
-                            <img src="/restaurante/photo/{{ rest_id }}?_={{ range(1, 10000) | random }}" 
-                                 alt="Logo" 
+                            <img src="/restaurante/photo/{{ rest_id }}?_={{ range(1, 10000) | random }}"
+                                 alt="Logo"
                                  style="width: 100%; height: 100%; object-fit: cover;"
                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                             <div style="display: none; font-size: 32px; color: #999;">🍽️</div>

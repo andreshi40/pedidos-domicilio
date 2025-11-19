@@ -33,16 +33,16 @@
         <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px; text-align: center;">
             <h3 style="margin-top: 0; font-size: 16px;">Mi Restaurante</h3>
             {% if restaurante.id %}
-                <img src="/restaurante/photo/{{ restaurante.id }}?_={{ range(1, 10000) | random }}" 
-                     alt="Logo restaurante" 
-                     style="width: 150px; height: 150px; object-fit: cover; border-radius: 10px; border: 3px solid #FF9800; margin-bottom: 10px;" 
+                <img src="/restaurante/photo/{{ restaurante.id }}?_={{ range(1, 10000) | random }}"
+                     alt="Logo restaurante"
+                     style="width: 150px; height: 150px; object-fit: cover; border-radius: 10px; border: 3px solid #FF9800; margin-bottom: 10px;"
                      onerror="this.style.display='none'; document.getElementById('logo-placeholder').style.display='flex';">
-                <div id="logo-placeholder" 
+                <div id="logo-placeholder"
                      style="display: none; width: 150px; height: 150px; border-radius: 10px; background: #e0e0e0; align-items: center; justify-content: center; font-size: 64px; color: #999; border: 3px solid #FF9800; margin: 0 auto 10px;">
                     🍽️
                 </div>
             {% endif %}
-            
+
             <div style="margin-top: 10px; text-align: left; font-size: 13px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
                 <p style="margin: 5px 0;"><strong>Nombre:</strong><br>{{ restaurante.nombre }}</p>
                 {% if restaurante.direccion %}
@@ -52,11 +52,11 @@
                     <p style="margin: 5px 0;"><strong>Rating:</strong> ⭐ {{ "%.1f"|format(restaurante.rating) }}</p>
                 {% endif %}
             </div>
-            
+
             <a class="btn" href="{{ url_for('restaurant_setup') }}" style="font-size: 12px; padding: 8px 12px; margin-top: 10px; display: block;">
                 ✏️ Editar restaurante
             </a>
-            
+
             <form method="POST" action="{{ url_for('update_restaurant_logo') }}" enctype="multipart/form-data" style="margin-top: 10px;" onsubmit="return handleLogoSubmit(event)">
                 <label style="font-size: 12px; display: block; margin-bottom: 5px;">Actualizar Logo:</label>
                 <input type="file" name="foto" accept="image/*" required style="font-size: 11px; margin-bottom: 8px;">
@@ -65,16 +65,16 @@
                 </button>
             </form>
         </div>
-        
+
         <!-- Columna derecha: Información del menú -->
         <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px;">
             <h3 style="margin-top: 0;">Menú del Restaurante</h3>
-            
+
             {% if menu_items and menu_items|length > 0 %}
                 <div style="margin-bottom: 15px;">
                     <p><strong>Total de items:</strong> {{ menu_items|length }}</p>
                 </div>
-                
+
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="background: #f0f0f0;">
@@ -101,7 +101,7 @@
                                 {% endif %}
                             </td>
                             <td style="padding: 10px; text-align: center;">
-                                <button onclick="deleteMenuItem('{{ item.id }}', '{{ item.nombre }}')" 
+                                <button onclick="deleteMenuItem('{{ item.id }}', '{{ item.nombre }}')"
                                         style="background: #f44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
                                     🗑️ Eliminar
                                 </button>
@@ -116,13 +116,13 @@
                     <p style="margin: 10px 0 0 0; font-size: 12px;">Agrega productos para que los clientes puedan hacer pedidos.</p>
                 </div>
             {% endif %}
-            
+
             <div style="margin-top: 20px;">
                 <a class="btn" href="{{ url_for('add_menu_items') }}" style="background: #4CAF50; color: white;">
                     ➕ Agregar items al menú
                 </a>
             </div>
-            
+
             <!-- Sección de Pedidos y Estadísticas (movida aquí después del menú) -->
             {% if orders_data %}
             <div style="margin-top: 30px;">
@@ -245,40 +245,40 @@
             {% endif %}
         </div>
     </div>
-    
+
     <script>
     let isSubmittingLogo = false;
-    
+
     function handleLogoSubmit(event) {
         if (isSubmittingLogo) {
             event.preventDefault();
             return false;
         }
-        
+
         const fileInput = event.target.querySelector('input[type="file"]');
         if (!fileInput.files || fileInput.files.length === 0) {
             alert('Selecciona una imagen primero');
             event.preventDefault();
             return false;
         }
-        
+
         isSubmittingLogo = true;
         const submitBtn = document.getElementById('logo-submit-btn');
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.textContent = '⏳ Subiendo...';
         }
-        
+
         return true;
     }
-    
+
     function deleteMenuItem(itemId, itemNombre) {
         if (!confirm(`¿Estás seguro de eliminar "${itemNombre}" del menú?`)) {
             return;
         }
-        
+
         const restaurantId = '{{ restaurante.id }}';
-        
+
         fetch(`/restaurant/menu/${restaurantId}/${itemId}`, {
             method: 'DELETE',
             headers: {
@@ -306,7 +306,7 @@
         });
     }
     </script>
-    
+
 {% else %}
     <div style="padding: 20px; border: 1px solid #ddd; border-radius: 6px; text-align: center;">
         <h3>No tienes un restaurante registrado</h3>

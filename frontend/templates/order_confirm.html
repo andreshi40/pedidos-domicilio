@@ -10,17 +10,17 @@
             <h3>Información del pedido</h3>
             <p><strong>ID:</strong> <span id="order-id">{{ pedido.get('id') or pedido.get('pedido_id') or pedido.get('order_id') }}</span></p>
             <p><strong>Estado:</strong> <span id="order-estado">{{ pedido.get('estado') or pedido.get('status') }}</span></p>
-            
+
             <h4>Información del cliente</h4>
             <p><strong>Nombre:</strong> {{ pedido.get('nombre_cliente', '') }} {{ pedido.get('apellido_cliente', '') }}</p>
             <p><strong>Teléfono:</strong> {{ pedido.get('telefono_cliente', '') }}</p>
             <p><strong>Dirección:</strong> {{ pedido.get('direccion', '') }}</p>
         </div>
-        
+
         <!-- Columna derecha: Items y total -->
         <div style="padding: 15px; border: 1px solid #ddd; border-radius: 6px;">
             <h3>Items del pedido</h3>
-            
+
             {% if pedido.get('items') and pedido.get('items')|length > 0 %}
                 <ul style="list-style: none; padding: 0; margin: 0;">
                 {% set total_pedido = namespace(value=0) %}
@@ -38,7 +38,7 @@
                     </li>
                 {% endfor %}
                 </ul>
-                
+
                 <div style="margin-top: 20px; padding: 15px; background: #4CAF50; color: white; border-radius: 6px; text-align: center;">
                     <h2 style="margin: 0; font-size: 24px;">TOTAL: <span id="order-total">${{ "%.2f"|format(total_pedido.value) }}</span></h2>
                 </div>
@@ -78,9 +78,9 @@
                             <h3 style="margin-top: 0;">Repartidor asignado</h3>
                             <div style="display: grid; grid-template-columns: 150px 1fr; gap: 20px; align-items: start;">
                                 <div style="text-align: center;">
-                                    <img src="/repartidor/photo/${rep.id}?_=${Date.now()}" 
-                                         alt="Foto repartidor" 
-                                         style="width: 120px; height: 120px; object-fit: cover; border-radius: 50%; border: 3px solid #4CAF50;" 
+                                    <img src="/repartidor/photo/${rep.id}?_=${Date.now()}"
+                                         alt="Foto repartidor"
+                                         style="width: 120px; height: 120px; object-fit: cover; border-radius: 50%; border: 3px solid #4CAF50;"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                     <div style="display: none; width: 120px; height: 120px; border-radius: 50%; background: #e0e0e0; align-items: center; justify-content: center; font-size: 48px; color: #999; border: 3px solid #4CAF50;">
                                         👤
@@ -104,8 +104,8 @@
                         if(nombreEl) nombreEl.innerHTML = '<strong>Nombre:</strong> ' + (rep.nombre || rep.name || '');
                         if(telEl) telEl.innerHTML = '<strong>Teléfono:</strong> ' + (rep.telefono || '');
                         if(estadoRepEl) {
-                            estadoRepEl.innerHTML = estado === 'completado' 
-                                ? '<span style="color: #4CAF50;">✓ Pedido entregado</span>' 
+                            estadoRepEl.innerHTML = estado === 'completado'
+                                ? '<span style="color: #4CAF50;">✓ Pedido entregado</span>'
                                 : '<span style="color: #FF9800;">🚚 En camino</span>';
                         }
                     }

@@ -601,7 +601,7 @@ El resultado es un sistema robusto, escalable y mantenible que sirve como base s
 
 ---
 
-**Fecha de Documentación**: Noviembre 17, 2025  
-**Versión del Proyecto**: 1.0  
-**Autor**: Equipo de Desarrollo Pedidos Domicilio  
+**Fecha de Documentación**: Noviembre 17, 2025
+**Versión del Proyecto**: 1.0
+**Autor**: Equipo de Desarrollo Pedidos Domicilio
 **Repositorio**: github.com/andreshi40/pedidos-domicilio

@@ -7,6 +7,7 @@ from main import app
 
 client = TestClient(app)
 
+
 class DummyResponse:
     def __init__(self, status_code, json_data=None, text=""):
         self.status_code = status_code
@@ -23,25 +24,25 @@ def test_create_pedido_fails_when_item_out_of_stock(monkeypatch):
 
     def fake_get(url, timeout=2, params=None, headers=None):
         # if the URL ends with /menu return the menu
-        if url.endswith('/menu'):
+        if url.endswith("/menu"):
             return DummyResponse(200, json_data=menu)
         # fallback: normal behavior
         return DummyResponse(404, json_data={})
 
-    monkeypatch.setattr(pedidos_main.requests, 'get', fake_get)
+    monkeypatch.setattr(pedidos_main.requests, "get", fake_get)
 
     payload = {
         "restaurante_id": "rest1",
         "cliente_email": "test@example.com",
         "direccion": "Calle Test 1",
-        "items": [{"item_id": "p1", "cantidad": 1}]
+        "items": [{"item_id": "p1", "cantidad": 1}],
     }
 
-    resp = client.post('/api/v1/pedidos', json=payload)
+    resp = client.post("/api/v1/pedidos", json=payload)
     assert resp.status_code == 400
     body = resp.json()
-    assert 'sin stock' in body.get('detail', '').lower()
+    assert "sin stock" in body.get("detail", "").lower()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pytest.main([__file__])

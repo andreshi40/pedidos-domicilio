@@ -25,7 +25,7 @@ Sigue estos pasos para comenzar tu proyecto:
 2. Clonar el repositorio base:
 
     ```bash
-    git clone https://github.com/USUARIO/nuevo-nombre.git 
+    git clone https://github.com/USUARIO/nuevo-nombre.git
     cd nuevo-nombre
     ```
 
@@ -39,7 +39,7 @@ Sigue estos pasos para comenzar tu proyecto:
     **Nota**: Asegúrate de configurar las variables de entorno en el archivo `.env` si es necesario.
 
 3. Familiarízate con la estructura del proyecto:
-    
+
     * `frontend/`: La aplicación web principal (Flask).
     * `api-gateway/`: El enrutador de peticiones (FastAPI).
     * `services/`: Directorio donde desarrollarás tus microservicios (FastAPI).

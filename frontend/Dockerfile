@@ -15,5 +15,5 @@ COPY . .
 # Exponemos el puerto en el que la aplicación Flask se ejecutará.
 EXPOSE 5000
 
-# Flask se ejecutará en todas las interfaces de red (0.0.0.0) en el puerto 5000.
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+# Ejecutar directamente la app para evitar necesidad de FLASK_APP en entorno.
+CMD ["python", "app.py"]

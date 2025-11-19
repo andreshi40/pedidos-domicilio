@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 
 
 # Declarative base used by the service
@@ -19,7 +19,9 @@ class RestauranteORM(Base):
     foto_url = Column(String, nullable=True)
     user_id = Column(String, nullable=True, index=True)
 
-    menu = relationship("MenuItemORM", back_populates="restaurante", cascade="all, delete-orphan")
+    menu = relationship(
+        "MenuItemORM", back_populates="restaurante", cascade="all, delete-orphan"
+    )
 
     def to_dict(self):
         return {

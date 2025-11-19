@@ -88,7 +88,9 @@ def create_refresh_token(data: dict, expires_days: int = REFRESH_TOKEN_EXPIRE_DA
     # store jti in redis with expiry so we can validate/ revoke
     if redis_client:
         try:
-            redis_client.setex(f"refresh:{jti}", timedelta(days=expires_days), to_encode.get("sub"))
+            redis_client.setex(
+                f"refresh:{jti}", timedelta(days=expires_days), to_encode.get("sub")
+            )
         except Exception:
             # ignore redis errors here; validation will fail if not present
             pass
@@ -112,9 +114,16 @@ def register(user: UserCreate):
         raise HTTPException(status_code=409, detail="Email already registered")
     # basic password strength check
     if not user.password or len(user.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+        raise HTTPException(
+            status_code=400, detail="Password must be at least 8 characters long"
+        )
     hashed = get_password_hash(user.password)
-    user_doc = {"email": user.email, "password": hashed, "role": user.role, "created_at": datetime.utcnow()}
+    user_doc = {
+        "email": user.email,
+        "password": hashed,
+        "role": user.role,
+        "created_at": datetime.utcnow(),
+    }
     users.insert_one(user_doc)
     return {"message": "user created"}
 
@@ -127,9 +136,26 @@ def login(form_data: UserCreate):
     if not verify_password(form_data.password, user["password"]):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": str(user["_id"]), "email": user["email"], "role": user.get("role", "cliente")}, expires_delta=access_token_expires)
-    refresh_token = create_refresh_token(data={"sub": str(user["_id"]), "email": user["email"], "role": user.get("role", "cliente")})
-    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
+    access_token = create_access_token(
+        data={
+            "sub": str(user["_id"]),
+            "email": user["email"],
+            "role": user.get("role", "cliente"),
+        },
+        expires_delta=access_token_expires,
+    )
+    refresh_token = create_refresh_token(
+        data={
+            "sub": str(user["_id"]),
+            "email": user["email"],
+            "role": user.get("role", "cliente"),
+        }
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": refresh_token,
+    }
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
@@ -217,7 +243,14 @@ def refresh_token(req: RefreshRequest):
 
     # issue new access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": str(sub), "email": payload.get("email"), "role": payload.get("role", "cliente")}, expires_delta=access_token_expires)
+    access_token = create_access_token(
+        data={
+            "sub": str(sub),
+            "email": payload.get("email"),
+            "role": payload.get("role", "cliente"),
+        },
+        expires_delta=access_token_expires,
+    )
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -248,4 +281,3 @@ def logout(req: RefreshRequest):
 @app.get("/me")
 def read_current_user(current_user: dict = Depends(get_current_user)):
     return {"user": current_user}
-

@@ -23,7 +23,9 @@ class OrderORM(Base):
     repartidor_nombre = Column(String, nullable=True)
     repartidor_telefono = Column(String, nullable=True)
 
-    items = relationship("OrderItemORM", back_populates="order", cascade="all, delete-orphan")
+    items = relationship(
+        "OrderItemORM", back_populates="order", cascade="all, delete-orphan"
+    )
 
 
 class OrderItemORM(Base):

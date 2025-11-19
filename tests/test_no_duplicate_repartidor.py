@@ -16,8 +16,8 @@ def _find_rest_with_item(min_quantity: int = 1):
         pytest.skip(f"No se pudo conectar a restaurantes service: {e}")
 
     restos = r.json() or []
-    if isinstance(restos, dict) and 'restaurantes' in restos:
-        restos = restos['restaurantes']
+    if isinstance(restos, dict) and "restaurantes" in restos:
+        restos = restos["restaurantes"]
 
     for rest in restos:
         try:
@@ -25,12 +25,12 @@ def _find_rest_with_item(min_quantity: int = 1):
             if m.status_code != 200:
                 continue
             menu = m.json()
-            if isinstance(menu, dict) and 'menu' in menu:
-                items = menu['menu']
+            if isinstance(menu, dict) and "menu" in menu:
+                items = menu["menu"]
             else:
                 items = menu
             for it in items:
-                if it.get('cantidad', 0) >= min_quantity:
+                if it.get("cantidad", 0) >= min_quantity:
                     return rest, it
         except Exception:
             continue
@@ -54,15 +54,17 @@ def test_order_page_shows_single_repartidor_block():
 
     # create order via gateway
     payload = {
-        "restaurante_id": rest.get('id'),
+        "restaurante_id": rest.get("id"),
         "cliente_email": "dup_test@example.com",
         "direccion": "Calle Dup 1",
-        "items": [{"item_id": item.get('id'), "cantidad": 1}]
+        "items": [{"item_id": item.get("id"), "cantidad": 1}],
     }
     resp = requests.post(f"{BASE_GW}/pedidos", json=payload, timeout=5)
-    assert resp.status_code in (200,201), f"Crear pedido falló: {resp.status_code} {resp.text}"
+    assert resp.status_code in (200, 201), (
+        f"Crear pedido falló: {resp.status_code} {resp.text}"
+    )
     order = resp.json()
-    order_id = order.get('id')
+    order_id = order.get("id")
     assert order_id
 
     # wait until assigned
@@ -71,9 +73,9 @@ def test_order_page_shows_single_repartidor_block():
         r = requests.get(f"{BASE_GW}/pedidos/{order_id}", timeout=3)
         if r.status_code == 200:
             j = r.json()
-            if j.get('estado') == 'asignado' and j.get('repartidor'):
+            if j.get("estado") == "asignado" and j.get("repartidor"):
                 assigned = True
-                rep_name = j['repartidor'].get('nombre')
+                rep_name = j["repartidor"].get("nombre")
                 break
         time.sleep(1)
     assert assigned, "El pedido no fue asignado en el timeout"
@@ -84,8 +86,12 @@ def test_order_page_shows_single_repartidor_block():
     html = rhtml.text
 
     # Count occurrences of the repartidor header and the repartidor name
-    header_count = html.count('Repartidor asignado')
+    header_count = html.count("Repartidor asignado")
     name_count = html.count(rep_name) if rep_name else 0
 
-    assert header_count == 1, f"Se encontraron {header_count} bloques 'Repartidor asignado' en la página (esperado 1)"
-    assert name_count == 1, f"Se encontraron {name_count} ocurrencias del nombre del repartidor en la página (esperado 1)"
+    assert header_count == 1, (
+        f"Se encontraron {header_count} bloques 'Repartidor asignado' en la página (esperado 1)"
+    )
+    assert name_count == 1, (
+        f"Se encontraron {name_count} ocurrencias del nombre del repartidor en la página (esperado 1)"
+    )
