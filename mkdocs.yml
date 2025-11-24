@@ -16,6 +16,13 @@ nav:
       - Diagrama Mermaid: architecture.mmd
       - ASCII Layout: architecture-ascii.txt
       - Caso de Uso (Pedidos): use-case.md
+  - Diagramas Técnicos:
+      - Bases de Datos: diagrama-bases-datos.md
+      - Arquitectura del Sistema: diagrama-arquitectura.md
+      - Autenticación: diagrama-autenticacion.md
+      - API Gateway: diagrama-api-gateway.md
+      - Frontend: diagrama-frontend.md
+      - Orquestación Docker: diagrama-docker-orquestacion.md
 
 theme:
   name: material
